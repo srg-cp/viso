@@ -1,0 +1,59 @@
+<Window x:Class="CapturaTutor.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Style="{StaticResource {x:Type Window}}" Title="CapturaTutor · Asistente de estudio" Width="850" Height="950" MinWidth="660" MinHeight="620" WindowStartupLocation="CenterScreen">
+  <Grid Margin="26">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <Grid Margin="0,0,0,22"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel><TextBlock Text="CapturaTutor" FontSize="30" FontWeight="Bold"/><TextBlock Text="De tu pantalla a una explicación clara." Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0"/></StackPanel>
+      <Border Grid.Column="1" Background="#183E40" CornerRadius="8" Padding="12,8" VerticalAlignment="Center"><TextBlock Text="VISIÓN + RAZONAMIENTO" FontSize="11" Foreground="#83E7D3"/></Border>
+    </Grid>
+    <TabControl x:Name="Tabs" Grid.Row="1" Background="{StaticResource BackgroundBrush}" BorderThickness="0">
+      <TabItem Header="Capturar">
+        <ScrollViewer Foreground="{StaticResource TextBrush}" VerticalScrollBarVisibility="Auto"><StackPanel Margin="0,18,0,0">
+          <Border Background="{StaticResource PanelBrush}" CornerRadius="12" Padding="18"><StackPanel>
+            <TextBlock Text="1. Elige qué capturar" FontSize="18" FontWeight="SemiBold"/>
+            <Grid Margin="0,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="3*"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
+              <StackPanel Margin="0,0,12,0"><TextBlock Text="Monitor" Margin="0,0,0,6" Foreground="{StaticResource MutedBrush}"/><ComboBox x:Name="MonitorBox"/></StackPanel>
+              <StackPanel Grid.Column="1"><TextBlock Text="Área de captura" Margin="0,0,0,6" Foreground="{StaticResource MutedBrush}"/><ComboBox x:Name="AreaBox" SelectedIndex="0"><ComboBoxItem Content="Pantalla completa"/><ComboBoxItem Content="Seleccionar región"/></ComboBox></StackPanel>
+            </Grid>
+            <CheckBox x:Name="PreviewCheck" Content="Revisar la captura antes de enviarla" IsChecked="True"/>
+            <TextBlock Text="Atajo global: Alt + Mayús + S. La aplicación se oculta durante la captura." Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+          </StackPanel></Border>
+          <Border Background="{StaticResource PanelBrush}" CornerRadius="12" Padding="18" Margin="0,12,0,0"><StackPanel>
+            <TextBlock Text="2. Indica la tarea" FontSize="18" FontWeight="SemiBold"/>
+            <ComboBox x:Name="TaskBox" Margin="0,12,0,10" SelectedIndex="0"><ComboBoxItem Content="Resolver paso a paso"/><ComboBoxItem Content="Dar la respuesta y una explicación breve"/><ComboBoxItem Content="Completar el enunciado"/><ComboBoxItem Content="Explicar el enunciado"/><ComboBoxItem Content="Revisar mi solución"/></ComboBox>
+            <TextBox x:Name="InstructionsBox" Height="70" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" ToolTip="Indicaciones opcionales, por ejemplo: resuelve solo la pregunta 3."/>
+            <TextBlock Text="Indicaciones opcionales: pregunta concreta, nivel o tipo de explicación." FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0"/>
+          </StackPanel></Border>
+          <Border Background="{StaticResource PanelBrush}" CornerRadius="12" Padding="18" Margin="0,12,0,0"><StackPanel>
+            <Grid><TextBlock Text="3. Captura y consulta" FontSize="18" FontWeight="SemiBold"/><TextBlock x:Name="ModelSummary" HorizontalAlignment="Right" Foreground="#83E7D3" VerticalAlignment="Center"/></Grid>
+            <Border Height="100" Background="#101722" CornerRadius="8" Margin="0,12,0,12"><Grid><TextBlock x:Name="EmptyPreview" Text="Aquí aparecerá tu captura" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/><Image x:Name="PreviewImage" Stretch="Uniform"/></Grid></Border>
+            <WrapPanel><Button x:Name="CaptureButton" Content="Capturar pantalla" Click="CaptureClick" Background="#287B70"/><Button x:Name="SendButton" Content="Enviar al modelo" Click="SendClick" IsEnabled="False"/><Button x:Name="CancelButton" Content="Cancelar" Click="CancelClick" Visibility="Collapsed"/><Button x:Name="ResultButton" Content="Ver respuesta" Click="ResultClick" IsEnabled="False"/></WrapPanel>
+            <TextBlock Text="Al enviar, la imagen se comparte con OpenAI usando tu cuenta API. Cada consulta puede generar un cargo. Puedes seleccionar solo el ejercicio." FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="0,12,0,0"/>
+          </StackPanel></Border>
+        </StackPanel></ScrollViewer>
+      </TabItem>
+      <TabItem Header="Configuración">
+        <ScrollViewer Foreground="{StaticResource TextBrush}" VerticalScrollBarVisibility="Auto"><StackPanel Margin="0,18,0,0">
+          <Border Background="{StaticResource PanelBrush}" CornerRadius="12" Padding="20"><StackPanel>
+            <TextBlock Text="Conexión con OpenAI" FontSize="19" FontWeight="SemiBold"/>
+            <TextBlock Text="API key" Foreground="{StaticResource MutedBrush}" Margin="0,16,0,6"/><PasswordBox x:Name="KeyBox"/>
+            <CheckBox x:Name="RememberCheck" Content="Recordar clave cifrada para este usuario de Windows"/>
+            <TextBlock Text="Sin esta opción, la clave solo se conserva mientras la aplicación está abierta." FontSize="12" Foreground="{StaticResource MutedBrush}"/>
+            <TextBlock Text="Modelo con visión" Foreground="{StaticResource MutedBrush}" Margin="0,18,0,6"/>
+            <ComboBox x:Name="ModelBox" IsEditable="True"><ComboBoxItem Content="gpt-5.4-mini"/><ComboBoxItem Content="gpt-5.4"/></ComboBox>
+            <TextBlock Text="GPT-5.4 mini: menor costo y rapidez para el uso habitual.&#10;GPT-5.4: opción para ejercicios complejos.&#10;Puedes escribir otro identificador de OpenAI compatible con imágenes y Responses API." FontSize="13" Foreground="{StaticResource MutedBrush}" Margin="0,10,0,0"/>
+            <TextBlock Margin="0,12,0,0"><Hyperlink NavigateUri="https://platform.openai.com/api-keys" RequestNavigate="OpenLink">Obtener API key</Hyperlink><Run Text="  ·  "/><Hyperlink NavigateUri="https://developers.openai.com/api/docs/models" RequestNavigate="OpenLink">Consultar modelos</Hyperlink></TextBlock>
+          </StackPanel></Border>
+          <Border Background="{StaticResource PanelBrush}" CornerRadius="12" Padding="20" Margin="0,12,0,0"><StackPanel>
+            <TextBlock Text="Ventana de respuesta" FontSize="19" FontWeight="SemiBold"/>
+            <TextBlock Text="Esquina del monitor seleccionado" Foreground="{StaticResource MutedBrush}" Margin="0,14,0,6"/>
+            <ComboBox x:Name="CornerBox" SelectedIndex="0"><ComboBoxItem Content="Inferior derecha"/><ComboBoxItem Content="Inferior izquierda"/></ComboBox>
+            <CheckBox x:Name="TopmostCheck" Content="Mantener la respuesta encima de otras ventanas" IsChecked="True"/>
+            <TextBlock Text="Tamaño del texto" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,6"/><ComboBox x:Name="FontBox" SelectedIndex="1"><ComboBoxItem Content="14"/><ComboBoxItem Content="16"/><ComboBoxItem Content="18"/><ComboBoxItem Content="20"/></ComboBox>
+            <Button Content="Guardar configuración" Click="SaveClick" HorizontalAlignment="Left" Background="#287B70" Margin="0,18,0,0"/>
+          </StackPanel></Border>
+        </StackPanel></ScrollViewer>
+      </TabItem>
+    </TabControl>
+    <Grid Grid.Row="2" Margin="0,16,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock x:Name="StatusText" Text="Configura tu API key para comenzar." Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/><Button Grid.Column="1" Content="A la bandeja" Click="TrayClick" Padding="12,7" Margin="12,0,0,0"/></Grid>
+  </Grid>
+</Window>
