@@ -37,6 +37,8 @@ public partial class MainWindow : Window
     private Forms.Screen? answerScreen;
     private CaptureHotkeys? hotkeys;
     private GlobalHotkey? hotkey => hotkeys?.Full;
+    private uint draftHideModifiers;
+    private int draftHideVirtualKey;
     private uint draftShortModifiers;
     private int draftShortVirtualKey;
     private uint draftModifiers;
@@ -70,6 +72,12 @@ public partial class MainWindow : Window
         draftShortVirtualKey = settings.ShortHotkeyVirtualKey;
         ShortHotkeyBox.Text = GlobalHotkey.Label(draftShortModifiers, draftShortVirtualKey);
         MaxCharactersBox.Text = settings.MaxResponseCharacters.ToString();
+        draftHideModifiers = settings.HideHotkeyModifiers;
+        draftHideVirtualKey = settings.HideHotkeyVirtualKey;
+        HideHotkeyBox.Text = GlobalHotkey.Label(draftHideModifiers, draftHideVirtualKey);
+        DismissSecondsBox.Text = settings.DismissSeconds.ToString();
+        (settings.DismissMode == ResponseDismissal.Click ? DismissClickChoice : settings.DismissMode == ResponseDismissal.Scroll ? DismissScrollChoice : DismissTimeChoice).IsChecked = true;
+        answer.Dismissal.Warning += message => StatusText.Text = message;
         RememberCheck.IsChecked = settings.RememberKey;
         loadingProvider = true;
         ProviderBox.SelectedIndex = settings.Provider == "Gemini" ? 1 : 0;
@@ -131,7 +139,7 @@ public partial class MainWindow : Window
             ConfigureChrome();
             HwndSource.FromHwnd(handle)?.AddHook(WindowHook);
             hotkeys = new CaptureHotkeys(handle);
-            hotkeys.Initialize(settings.HotkeyModifiers, settings.HotkeyVirtualKey, settings.ShortHotkeyModifiers, settings.ShortHotkeyVirtualKey, out string error);
+            hotkeys.Initialize(settings.HotkeyModifiers, settings.HotkeyVirtualKey, settings.ShortHotkeyModifiers, settings.ShortHotkeyVirtualKey, settings.HideHotkeyModifiers, settings.HideHotkeyVirtualKey, out string error);
             if (!string.IsNullOrEmpty(error)) StatusText.Text = error;
             UpdateHotkeyDisplay();
         };
@@ -140,6 +148,7 @@ public partial class MainWindow : Window
             exiting = true;
             requestCancellation?.Cancel();
             hotkeys?.Dispose();
+            answer.Dismissal.Dispose();
             trayMenu.IsOpen = false; trayHint.IsOpen = false; trayHintTimer.Stop();
             tray.Visible = false;
             tray.Icon?.Dispose();
@@ -172,10 +181,15 @@ public partial class MainWindow : Window
             int id = wParam.ToInt32();
             bool full = hotkeys?.Full?.Registered == true && id == hotkeys.Full.Id;
             bool shortAnswer = hotkeys?.Short?.Registered == true && id == hotkeys.Short.Id;
-            if (full || shortAnswer)
+            bool hide = hotkeys?.Hide?.Registered == true && id == hotkeys.Hide.Id;
+            if (full || shortAnswer || hide)
             {
                 handled = true;
-                if (!HotkeyBox.IsKeyboardFocusWithin && !ShortHotkeyBox.IsKeyboardFocusWithin) _ = CaptureAsync(shortAnswer);
+                if (!HotkeyBox.IsKeyboardFocusWithin && !ShortHotkeyBox.IsKeyboardFocusWithin && !HideHotkeyBox.IsKeyboardFocusWithin)
+                {
+                    if (hide) answer.Hide();
+                    else _ = CaptureAsync(shortAnswer);
+                }
             }
         }
         return IntPtr.Zero;
@@ -191,6 +205,11 @@ public partial class MainWindow : Window
         if (!int.TryParse(MaxCharactersBox.Text, out int maxCharacters) || maxCharacters < 1 || maxCharacters > 10000)
             throw new ArgumentException("El límite debe estar entre 1 y 10.000 caracteres.");
         settings.MaxResponseCharacters = maxCharacters;
+        string dismissMode = DismissClickChoice.IsChecked == true ? ResponseDismissal.Click : DismissScrollChoice.IsChecked == true ? ResponseDismissal.Scroll : ResponseDismissal.Time;
+        bool validSeconds = int.TryParse(DismissSecondsBox.Text, out int seconds) && seconds >= 1 && seconds <= 3600;
+        if (dismissMode == ResponseDismissal.Time && !validSeconds) throw new ArgumentException("El tiempo debe estar entre 1 y 3.600 segundos.");
+        settings.DismissMode = dismissMode;
+        if (validSeconds) settings.DismissSeconds = seconds;
         settings.Provider = activeProvider;
         if (string.IsNullOrWhiteSpace(CurrentModel)) throw new ArgumentException("Selecciona un modelo.");
         if (activeProvider == "Gemini") settings.GeminiModel = CurrentModel;
@@ -214,9 +233,12 @@ public partial class MainWindow : Window
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         if (key is Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin) return;
         bool shortAnswer = ReferenceEquals(sender, ShortHotkeyBox);
+        bool hide = ReferenceEquals(sender, HideHotkeyBox);
+        var status = hide ? HideHotkeyStatus : shortAnswer ? ShortHotkeyStatus : HotkeyStatus;
         if (key == Key.Escape)
         {
-            if (shortAnswer) { draftShortModifiers = settings.ShortHotkeyModifiers; draftShortVirtualKey = settings.ShortHotkeyVirtualKey; ShortHotkeyBox.Text = GlobalHotkey.Label(draftShortModifiers, draftShortVirtualKey); }
+            if (hide) { draftHideModifiers = settings.HideHotkeyModifiers; draftHideVirtualKey = settings.HideHotkeyVirtualKey; HideHotkeyBox.Text = GlobalHotkey.Label(draftHideModifiers, draftHideVirtualKey); }
+            else if (shortAnswer) { draftShortModifiers = settings.ShortHotkeyModifiers; draftShortVirtualKey = settings.ShortHotkeyVirtualKey; ShortHotkeyBox.Text = GlobalHotkey.Label(draftShortModifiers, draftShortVirtualKey); }
             else { draftModifiers = settings.HotkeyModifiers; draftVirtualKey = settings.HotkeyVirtualKey; HotkeyBox.Text = GlobalHotkey.Label(draftModifiers, draftVirtualKey); }
             UpdateHotkeyDisplay(); return;
         }
@@ -226,11 +248,12 @@ public partial class MainWindow : Window
         if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0) modifiers |= 4;
         if ((Keyboard.Modifiers & ModifierKeys.Windows) != 0) modifiers |= 8;
         int virtualKey = KeyInterop.VirtualKeyFromKey(key);
-        if (!GlobalHotkey.IsValid(modifiers, virtualKey)) { (shortAnswer ? ShortHotkeyStatus : HotkeyStatus).Text = "Combina Ctrl, Alt, Mayús o Windows con otra tecla."; return; }
-        if (shortAnswer) { draftShortModifiers = modifiers; draftShortVirtualKey = virtualKey; }
+        if (!GlobalHotkey.IsValid(modifiers, virtualKey)) { status.Text = "Combina Ctrl, Alt, Mayús o Windows con otra tecla."; return; }
+        if (hide) { draftHideModifiers = modifiers; draftHideVirtualKey = virtualKey; }
+        else if (shortAnswer) { draftShortModifiers = modifiers; draftShortVirtualKey = virtualKey; }
         else { draftModifiers = modifiers; draftVirtualKey = virtualKey; }
         ((TextBox)sender).Text = GlobalHotkey.Label(modifiers, virtualKey);
-        (shortAnswer ? ShortHotkeyStatus : HotkeyStatus).Text = "Sin guardar. Esc para cancelar.";
+        status.Text = "Sin guardar. Esc para cancelar.";
     }
     private void UpdateHotkeyDisplay()
     {
@@ -239,8 +262,17 @@ public partial class MainWindow : Window
         HotkeyStatus.Text = enabled ? "Activo: " + label : "Atajo ocupado. Elige otro.";
         string shortLabel = GlobalHotkey.Label(settings.ShortHotkeyModifiers, settings.ShortHotkeyVirtualKey);
         ShortHotkeyStatus.Text = hotkeys?.Short?.Registered == true ? "Activo: " + shortLabel : "Atajo ocupado. Elige otro.";
-        CaptureHint.Text = "Completa: " + label + "\nRecortada: " + shortLabel;
+        string hideLabel = GlobalHotkey.Label(settings.HideHotkeyModifiers, settings.HideHotkeyVirtualKey);
+        HideHotkeyStatus.Text = hotkeys?.Hide?.Registered == true ? "Activo: " + hideLabel : "Atajo ocupado. Elige otro.";
+        CaptureHint.Text = "Completa: " + label + "\nRecortada: " + shortLabel + "\nOcultar: " + hideLabel;
         trayHint.Content = "Viso\n" + CaptureHint.Text;
+    }
+    private void DismissModeChanged(object sender, RoutedEventArgs e)
+    {
+        if (DismissTimePanel == null || DismissHelp == null) return;
+        bool timed = DismissTimeChoice.IsChecked == true;
+        DismissTimePanel.Visibility = timed ? Visibility.Visible : Visibility.Collapsed;
+        DismissHelp.Text = timed ? "Se oculta después del tiempo indicado." : DismissClickChoice.IsChecked == true ? "Se oculta al hacer clic en cualquier parte." : "Se oculta al mover la rueda del mouse.";
     }
     private void CaptureOptionChanged(object sender, SelectionChangedEventArgs e) => UpdateCaptureOptions();
     private void AppearanceChanged(object sender, RoutedEventArgs e)
@@ -447,20 +479,22 @@ public partial class MainWindow : Window
     }
     private void SaveClick(object sender, RoutedEventArgs e)
     {
-        var previous = (settings.HotkeyModifiers, settings.HotkeyVirtualKey, settings.ShortHotkeyModifiers, settings.ShortHotkeyVirtualKey, settings.MaxResponseCharacters);
+        var previous = (settings.HotkeyModifiers, settings.HotkeyVirtualKey, settings.ShortHotkeyModifiers, settings.ShortHotkeyVirtualKey, settings.HideHotkeyModifiers, settings.HideHotkeyVirtualKey, settings.MaxResponseCharacters, settings.DismissMode, settings.DismissSeconds);
         bool changedHotkeys = false;
         try
         {
             ReadSettings(false);
             string error = "No se pudieron registrar los atajos.";
-            if (hotkeys == null || !hotkeys.TryReplace(draftModifiers, draftVirtualKey, draftShortModifiers, draftShortVirtualKey, out error))
+            if (hotkeys == null || !hotkeys.TryReplace(draftModifiers, draftVirtualKey, draftShortModifiers, draftShortVirtualKey, draftHideModifiers, draftHideVirtualKey, out error))
             {
                 settings.MaxResponseCharacters = previous.MaxResponseCharacters;
+                settings.DismissMode = previous.DismissMode; settings.DismissSeconds = previous.DismissSeconds;
                 StatusText.Text = error; UpdateHotkeyDisplay(); return;
             }
             changedHotkeys = true;
             settings.HotkeyModifiers = draftModifiers; settings.HotkeyVirtualKey = draftVirtualKey;
             settings.ShortHotkeyModifiers = draftShortModifiers; settings.ShortHotkeyVirtualKey = draftShortVirtualKey;
+            settings.HideHotkeyModifiers = draftHideModifiers; settings.HideHotkeyVirtualKey = draftHideVirtualKey;
             ReadSettings(true);
             UpdateHotkeyDisplay(); UpdateCaptureOptions();
             answer.ApplySettings(settings, SelectedScreen());
@@ -471,7 +505,9 @@ public partial class MainWindow : Window
             settings.HotkeyModifiers = previous.HotkeyModifiers; settings.HotkeyVirtualKey = previous.HotkeyVirtualKey;
             settings.ShortHotkeyModifiers = previous.ShortHotkeyModifiers; settings.ShortHotkeyVirtualKey = previous.ShortHotkeyVirtualKey;
             settings.MaxResponseCharacters = previous.MaxResponseCharacters;
-            if (changedHotkeys && hotkeys != null && !hotkeys.TryReplace(previous.HotkeyModifiers, previous.HotkeyVirtualKey, previous.ShortHotkeyModifiers, previous.ShortHotkeyVirtualKey, out _)) hotkeys.Dispose();
+            settings.HideHotkeyModifiers = previous.HideHotkeyModifiers; settings.HideHotkeyVirtualKey = previous.HideHotkeyVirtualKey;
+            settings.DismissMode = previous.DismissMode; settings.DismissSeconds = previous.DismissSeconds;
+            if (changedHotkeys && hotkeys != null && !hotkeys.TryReplace(previous.HotkeyModifiers, previous.HotkeyVirtualKey, previous.ShortHotkeyModifiers, previous.ShortHotkeyVirtualKey, previous.HideHotkeyModifiers, previous.HideHotkeyVirtualKey, out _)) hotkeys.Dispose();
             UpdateHotkeyDisplay(); StatusText.Text = "No se pudo guardar: " + ex.Message;
         }
     }
@@ -616,7 +652,72 @@ public partial class MainWindow : Window
                 if (externalKey.TryReplace(7, candidate, out _)) { occupied = candidate; break; }
             if (occupied == 0 || pair.TryReplace(7, shortened, 7, occupied, out _) || pair.Full != oldFull || pair.Short != oldShort || !oldFull!.Registered || !oldShort!.Registered)
                 throw new InvalidOperationException("Un conflicto sustituyó alguno de los dos atajos activos.");
+            externalKey.Dispose();
+            int hidden = 0;
+            for (int candidate = 0x7C; candidate <= 0x87; candidate++)
+                if (pair.TryReplace(7, pair.Full!.VirtualKey, 7, pair.Short!.VirtualKey, 7, candidate, out _)) { hidden = candidate; break; }
+            if (hidden == 0 || pair.Hide?.Registered != true) throw new InvalidOperationException("No se registró el tercer atajo.");
+            int fullKey = pair.Full!.VirtualKey, shortKey = pair.Short!.VirtualKey;
+            if (!pair.TryReplace(7, shortKey, 7, hidden, 7, fullKey, out _)) throw new InvalidOperationException("No se pueden intercambiar los tres atajos.");
+            var beforeFull = pair.Full; var beforeShort = pair.Short; var beforeHide = pair.Hide;
+            if (pair.TryReplace(7, shortKey, 7, hidden, 7, hidden, out _)) throw new InvalidOperationException("Se aceptó un atajo de ocultar duplicado.");
+            for (int candidate = 0x7C; candidate <= 0x87; candidate++)
+                if (externalKey.TryReplace(7, candidate, out _)) { occupied = candidate; break; }
+            if (pair.TryReplace(7, shortKey, 7, hidden, 7, occupied, out _) || pair.Full != beforeFull || pair.Short != beforeShort || pair.Hide != beforeHide || beforeHide?.Registered != true)
+                throw new InvalidOperationException("Un conflicto al ocultar eliminó uno de los tres atajos.");
         }
+        ShowMain();
+        await Task.Delay(250);
+        ResponseNav.IsChecked = true;
+        DismissTimeChoice.IsChecked = true;
+        if (DismissTimePanel.Visibility != Visibility.Visible) throw new InvalidOperationException("No se mostró el tiempo configurable.");
+        DismissScrollChoice.IsChecked = true;
+        if (DismissTimePanel.Visibility != Visibility.Collapsed) throw new InvalidOperationException("El tiempo siguió visible en modo scroll.");
+        DismissTimeChoice.IsChecked = true;
+        await Task.Delay(150);
+        UiSnapshot.Save(this, "smoke-response-settings.png");
+        settings.DismissMode = ResponseDismissal.Time;
+        settings.DismissSeconds = 1;
+        answer.Present("Timer test", "", "", settings, screen);
+        if (!answer.Dismissal.TimerActive || answer.Dismissal.MouseActive) throw new InvalidOperationException("El modo tiempo activó el mouse.");
+        await Task.Delay(700);
+        answer.Present("New response", "", "", settings, screen);
+        await Task.Delay(500);
+        if (!answer.IsVisible) throw new InvalidOperationException("El temporizador anterior ocultó la respuesta nueva.");
+        await Task.Delay(650);
+        if (answer.IsVisible || answer.Dismissal.TimerActive || answer.Dismissal.MouseActive) throw new InvalidOperationException("El temporizador no ocultó y liberó la respuesta.");
+        settings.DismissMode = ResponseDismissal.Scroll;
+        answer.Present("Scroll test", "", "", settings, screen);
+        if (!answer.Dismissal.MouseActive || answer.Dismissal.TimerActive) throw new InvalidOperationException("El modo scroll no registró el mouse.");
+        answer.Dismissal.ProcessMouseInput(0x0001);
+        await Task.Delay(100);
+        if (!answer.IsVisible) throw new InvalidOperationException("Un clic ocultó la respuesta en modo scroll.");
+        answer.Dismissal.ProcessMouseInput(0x0400);
+        await Task.Delay(100);
+        if (answer.IsVisible || answer.Dismissal.MouseActive) throw new InvalidOperationException("El scroll no ocultó y liberó la respuesta.");
+        settings.DismissMode = ResponseDismissal.Click;
+        answer.Present("Click test", "", "", settings, screen);
+        answer.Dismissal.ProcessMouseInput(0x0400);
+        await Task.Delay(100);
+        if (!answer.IsVisible) throw new InvalidOperationException("El scroll ocultó la respuesta en modo clic.");
+        answer.Dismissal.ProcessMouseInput(0x0001);
+        answer.Present("Replacement before queued click", "", "", settings, screen);
+        await Task.Delay(100);
+        if (!answer.IsVisible) throw new InvalidOperationException("Un clic pendiente ocultó una respuesta nueva.");
+        answer.Dismissal.ProcessMouseInput(0x0004);
+        await Task.Delay(100);
+        if (answer.IsVisible || answer.Dismissal.MouseActive) throw new InvalidOperationException("El clic no ocultó y liberó la respuesta.");
+        foreach (string mode in new[] { ResponseDismissal.Time, ResponseDismissal.Click, ResponseDismissal.Scroll })
+        {
+            settings.DismissMode = mode;
+            answer.Present("Hide shortcut test", "", "", settings, screen);
+            if (hotkeys?.Hide?.Registered != true) throw new InvalidOperationException("El atajo para ocultar no está disponible.");
+            bool handled = false;
+            WindowHook(handle, 0x0312, new IntPtr(hotkeys.Hide.Id), IntPtr.Zero, ref handled);
+            if (!handled || answer.IsVisible || answer.Dismissal.MouseActive || answer.Dismissal.TimerActive) throw new InvalidOperationException("El atajo no ocultó la respuesta en todos los modos.");
+        }
+        settings.DismissMode = ResponseDismissal.Time;
+        settings.DismissSeconds = 10;
         settings.Corner = "right";
         answer.Present("Prueba local de interfaz.\n\n2x + 4 = 10\n2x = 6\nx = 3\n\nComprobación: 2(3) + 4 = 10.", "Prueba sin API", "No se envió ninguna imagen", settings, screen);
         await Task.Delay(250);

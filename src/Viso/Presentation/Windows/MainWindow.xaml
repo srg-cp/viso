@@ -1,6 +1,10 @@
 <Window x:Class="Viso.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework" Style="{StaticResource {x:Type Window}}" Icon="/Viso;component/Resources/Branding/viso.png" Title="Viso · Configuración" Width="1040" Height="750" MinWidth="600" MinHeight="500" WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResize" Background="{DynamicResource WindowBrush}">
   <shell:WindowChrome.WindowChrome><shell:WindowChrome CaptionHeight="0" ResizeBorderThickness="6" CornerRadius="14" GlassFrameThickness="1" UseAeroCaptionButtons="False"/></shell:WindowChrome.WindowChrome>
   <Window.Resources>
+    <Style x:Key="DismissalChoice" TargetType="RadioButton">
+      <Setter Property="FocusVisualStyle" Value="{x:Null}"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RadioButton"><Border x:Name="ChoiceSurface" CornerRadius="7" Background="Transparent" Padding="12,8" Margin="2"><ContentPresenter HorizontalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ChoiceSurface" Property="Background" Value="{DynamicResource HoverBrush}"/></Trigger><Trigger Property="IsChecked" Value="True"><Setter TargetName="ChoiceSurface" Property="Background" Value="{DynamicResource AccentBrush}"/><Setter Property="Foreground" Value="White"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+    </Style>
     <Style x:Key="TrafficLight" TargetType="Button"><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
       <Setter Property="Width" Value="13"/><Setter Property="Height" Value="13"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,0,8,0"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Focusable" Value="False"/>
       <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Grid><Ellipse Fill="{TemplateBinding Background}" Stroke="#22000000" StrokeThickness="1"/><ContentPresenter x:Name="Symbol" Opacity="0" HorizontalAlignment="Center" VerticalAlignment="Center"/><Grid.RenderTransform><ScaleTransform/></Grid.RenderTransform></Grid><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Symbol" Property="Opacity" Value="0.7"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
@@ -88,7 +92,16 @@
             <StackPanel Margin="0,0,14,0"><TextBlock Text="Ubicación" Style="{StaticResource FieldLabel}"/><ComboBox x:Name="CornerBox" SelectedIndex="0"><ComboBoxItem Content="Inferior derecha"/><ComboBoxItem Content="Inferior izquierda"/></ComboBox></StackPanel>
             <StackPanel Grid.Column="1"><TextBlock Text="Tamaño del texto" Style="{StaticResource FieldLabel}"/><ComboBox x:Name="FontBox" SelectedIndex="1"><ComboBoxItem Content="14"/><ComboBoxItem Content="16"/><ComboBoxItem Content="18"/><ComboBoxItem Content="20"/></ComboBox></StackPanel>
           </Grid>
-          <CheckBox x:Name="TopmostCheck" Content="Siempre visible" IsChecked="True"/>
+          <CheckBox x:Name="TopmostCheck" Content="Sobre otras ventanas" IsChecked="True"/>
+          <TextBlock Text="Ocultar respuesta" Style="{StaticResource FieldLabel}" Margin="0,20,0,8"/>
+          <Border Background="{DynamicResource InputBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="2">
+            <UniformGrid Columns="3"><RadioButton x:Name="DismissTimeChoice" GroupName="Dismissal" Content="Tiempo" Style="{StaticResource DismissalChoice}" Checked="DismissModeChanged"/><RadioButton x:Name="DismissClickChoice" GroupName="Dismissal" Content="Clic" Style="{StaticResource DismissalChoice}" Checked="DismissModeChanged"/><RadioButton x:Name="DismissScrollChoice" GroupName="Dismissal" Content="Scroll" Style="{StaticResource DismissalChoice}" Checked="DismissModeChanged"/></UniformGrid>
+          </Border>
+          <StackPanel x:Name="DismissTimePanel" Margin="0,14,0,0"><TextBlock Text="Segundos" Style="{StaticResource FieldLabel}"/><TextBox x:Name="DismissSecondsBox" MaxLength="4" Width="120" HorizontalAlignment="Left" ToolTip="Entre 1 y 3.600 segundos."/></StackPanel>
+          <TextBlock x:Name="DismissHelp" Style="{StaticResource Caption}" Margin="0,10,0,18"/>
+          <TextBlock Text="Atajo para ocultar" Style="{StaticResource FieldLabel}"/>
+          <TextBox x:Name="HideHotkeyBox" IsReadOnly="True" PreviewKeyDown="HotkeyKeyDown" ToolTip="Funciona con cualquiera de los tres modos."/>
+          <TextBlock x:Name="HideHotkeyStatus" Style="{StaticResource Caption}" Margin="0,7,0,0"/>
         </StackPanel></Border>
           </StackPanel>
         </ScrollViewer>

@@ -70,7 +70,7 @@ public partial class App : Application
             try
             {
                 await window.SmokeTestAsync();
-                File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "smoke-test-result.txt"), "PASS: apariencia clara/oscura en vivo y persistente, diálogos y bandeja oscuros, diálogo real de segunda instancia, menú y aviso propios de bandeja (también con ventana oculta), apertura/minimización/reapertura animadas, cancelación de una transición al reabrir, dos atajos y recorte configurable, captura automática sin abrir la ventana principal ni duplicar consultas, respuesta transparente, selector de modelo sin escritura, área guardada, navegación, controles de ventana y vista compacta. Sin API real ni cambios en la configuración.");
+                File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "smoke-test-result.txt"), "PASS: apariencia clara/oscura en vivo y persistente, diálogos y bandeja oscuros, diálogo real de segunda instancia, menú y aviso propios de bandeja (también con ventana oculta), apertura/minimización/reapertura animadas, cancelación de una transición al reabrir, tres atajos, recorte configurable, ocultamiento por tiempo/clic/scroll y descarte de eventos anteriores, captura automática sin abrir la ventana principal ni duplicar consultas, respuesta transparente, selector de modelo sin escritura, área guardada, navegación, controles de ventana y vista compacta. Sin API real ni cambios en la configuración.");
                 Shutdown(0);
             }
             catch (Exception ex)

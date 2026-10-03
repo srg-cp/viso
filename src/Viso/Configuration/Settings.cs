@@ -21,6 +21,10 @@ public sealed class Settings
     public uint ShortHotkeyModifiers { get; set; } = 5;
     public int ShortHotkeyVirtualKey { get; set; } = 0x44;
     public int MaxResponseCharacters { get; set; } = 10;
+    public uint HideHotkeyModifiers { get; set; } = 5;
+    public int HideHotkeyVirtualKey { get; set; } = 0x58;
+    public string DismissMode { get; set; } = ResponseDismissal.Time;
+    public int DismissSeconds { get; set; } = 10;
     public bool PreviewBeforeSend { get; set; } = false;
     public bool RememberKey { get; set; }
     public string EncryptedKey { get; set; } = "";
@@ -50,6 +54,8 @@ public sealed class Settings
             var settings = JsonSerializer.Deserialize<Settings>(File.ReadAllText(path)) ?? new Settings();
             settings.FontSize = Math.Clamp(settings.FontSize, 12, 24);
             settings.Appearance = settings.Appearance == "dark" ? "dark" : "light";
+            settings.DismissMode = ResponseDismissal.Normalize(settings.DismissMode);
+            settings.DismissSeconds = Math.Clamp(settings.DismissSeconds, 1, 3600);
             settings.MaxResponseCharacters = Math.Clamp(settings.MaxResponseCharacters, 1, 10000);
             settings.Provider = settings.Provider == "Gemini" ? "Gemini" : "OpenAI";
             settings.Task = settings.Task == TaskPrompts.Complete || settings.Task == "Completar el enunciado" ? TaskPrompts.Complete : TaskPrompts.Alternative;
@@ -65,6 +71,20 @@ public sealed class Settings
                 settings.ShortHotkeyModifiers = 5; settings.ShortHotkeyVirtualKey = 0x44;
                 if (settings.HotkeyModifiers == 5 && settings.HotkeyVirtualKey == 0x44) settings.ShortHotkeyModifiers = 7;
                 warning = "Se restableció el atajo de respuesta recortada.";
+            }
+            if (!GlobalHotkey.IsValid(settings.HideHotkeyModifiers, settings.HideHotkeyVirtualKey) ||
+                (settings.HideHotkeyModifiers == settings.HotkeyModifiers && settings.HideHotkeyVirtualKey == settings.HotkeyVirtualKey) ||
+                (settings.HideHotkeyModifiers == settings.ShortHotkeyModifiers && settings.HideHotkeyVirtualKey == settings.ShortHotkeyVirtualKey))
+            {
+                settings.HideHotkeyVirtualKey = 0x58;
+                foreach (uint modifiers in new uint[] { 5, 7, 3 })
+                {
+                    if ((modifiers == settings.HotkeyModifiers && settings.HotkeyVirtualKey == 0x58) ||
+                        (modifiers == settings.ShortHotkeyModifiers && settings.ShortHotkeyVirtualKey == 0x58)) continue;
+                    settings.HideHotkeyModifiers = modifiers;
+                    break;
+                }
+                warning = "Se restableció el atajo para ocultar la respuesta.";
             }
             return settings;
         }

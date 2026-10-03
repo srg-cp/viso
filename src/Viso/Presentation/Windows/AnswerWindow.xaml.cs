@@ -16,9 +16,11 @@ public partial class AnswerWindow : Window
     [DllImport("user32.dll", EntryPoint = "SetWindowLongW")] private static extern int SetWindowLong(IntPtr hwnd, int index, int value);
     private const int OverlayStyles = 0x20 | 0x80 | 0x08000000;
     public string ResponseText => AnswerText.Text;
+    internal AnswerDismissal Dismissal { get; }
     public AnswerWindow()
     {
         InitializeComponent();
+        Dismissal = new AnswerDismissal(this);
         SourceInitialized += (_, _) =>
         {
             var handle = new WindowInteropHelper(this).Handle;
@@ -53,6 +55,7 @@ public partial class AnswerWindow : Window
     }
     public void ApplySettings(Settings settings, Forms.Screen screen)
     {
+        Dismissal.Configure(settings.DismissMode, settings.DismissSeconds);
         Topmost = settings.Topmost;
         AnswerText.FontSize = settings.FontSize;
         AnswerText.TextAlignment = settings.Corner == "left" ? TextAlignment.Left : TextAlignment.Right;

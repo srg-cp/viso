@@ -11,7 +11,7 @@
   <a href="https://github.com/srg-cp/viso/releases/latest"><img src="https://img.shields.io/github/v/release/srg-cp/viso?label=release" alt="Último Release"></a>
   <img src="https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&amp;logoColor=white" alt="Windows 10 y 11">
   <img src="https://img.shields.io/badge/.NET-8-512BD4?logo=dotnet&amp;logoColor=white" alt=".NET 8">
-  <img src="https://img.shields.io/badge/version-2.0.0-333333" alt="Versión 2.0.0">
+  <img src="https://img.shields.io/badge/version-2.1.0-333333" alt="Versión 2.1.0">
   <img src="https://img.shields.io/badge/modelos-OpenAI%20%2B%20Gemini-4285F4" alt="OpenAI y Gemini">
 </p>
 
@@ -29,6 +29,7 @@ Viso es una aplicación de escritorio para Windows. Con un atajo captura la pant
 - Captura de un monitor completo o de un área que puedes guardar.
 - Dos atajos configurables: respuesta completa y respuesta con un límite de caracteres.
 - Texto superpuesto en la esquina inferior derecha o izquierda, con tamaño ajustable.
+- Ocultamiento por tiempo, clic o scroll, con un atajo independiente para ocultar la respuesta.
 - Interfaz con modo claro y oscuro, animaciones y acceso desde la bandeja.
 - OpenAI y Gemini, con una clave independiente para cada proveedor.
 - Ejecutable portable para Windows de 64 bits, con .NET incluido.
@@ -47,10 +48,21 @@ Descarga **Viso.exe** desde el [último Release](https://github.com/srg-cp/viso/
 | --- | --- |
 | **Alt + Mayús + S** | La respuesta completa |
 | **Alt + Mayús + D** | Los primeros N caracteres de la respuesta |
+| **Alt + Mayús + X** | Oculta la respuesta |
 
-Ambos atajos capturan y envían en una sola acción. El límite de caracteres incluye espacios y signos y solo afecta al texto mostrado; la consulta al modelo es la misma.
+Los dos atajos de captura envían la imagen en una sola acción. El límite de caracteres incluye espacios y signos y solo afecta al texto mostrado; la consulta al modelo es la misma.
 
 En **Respuesta** puedes elegir la esquina y el tamaño del texto. El interruptor de la barra lateral cambia el tema. Pulsa **Guardar** para conservar los ajustes.
+
+En ese mismo panel elige cómo ocultar la respuesta:
+
+| Modo | Cuándo desaparece |
+| --- | --- |
+| **Tiempo** | Después de los segundos que indiques: entre 1 y 3.600, por defecto 10. |
+| **Clic** | Al pulsar cualquier botón del mouse en cualquier parte de la pantalla. |
+| **Scroll** | Al mover la rueda del mouse, en vertical u horizontal. Los clics no la ocultan. |
+
+El **atajo para ocultar** funciona en los tres modos y también es configurable. El mouse conserva su función normal. Al iniciar otra captura se oculta la respuesta anterior; cada respuesta nueva reinicia el tiempo o la detección del mouse.
 
 El menú del icono junto al reloj permite abrir la configuración, capturar, copiar u ocultar la respuesta y salir. El botón rojo cierra Viso.
 
@@ -82,8 +94,8 @@ El workflow **Release** utiliza la misma compilación y las mismas pruebas que *
 2. Crea y sube un tag con esa versión:
 
 ```powershell
-git tag v2.0.0
-git push origin v2.0.0
+git tag v2.1.0
+git push origin v2.1.0
 ```
 
 El tag debe coincidir con la versión del proyecto. GitHub Actions crea el Release y adjunta **Viso.exe** y **Viso.exe.sha256**, que permite comprobar su integridad. También puedes ejecutar **Release** manualmente desde **Actions**, indicando un tag existente.
