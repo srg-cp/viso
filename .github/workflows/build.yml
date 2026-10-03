@@ -1,0 +1,35 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows x64
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 8.0.x
+      - name: Build and test
+        shell: pwsh
+        run: ./build.ps1 -Test
+      - name: Upload executable
+        uses: actions/upload-artifact@v7
+        with:
+          name: Viso-windows-x64
+          path: |
+            dist/Viso/Viso.exe
+            dist/Viso/LEEME.md
+          if-no-files-found: error

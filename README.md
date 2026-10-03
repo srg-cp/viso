@@ -1,66 +1,131 @@
-# Viso
+<p align="center">
+  <img src="assets/branding/viso.png" width="112" height="112" alt="Icono de Viso">
+</p>
 
-Aplicación de escritorio para Windows que captura un ejercicio, lo consulta con OpenAI o Gemini y muestra la respuesta en una esquina de la pantalla.
+<h1 align="center">Viso</h1>
 
-## Requisitos
+<p align="center">Captura un ejercicio. Consulta tu modelo. Recibe la respuesta.</p>
 
-- Windows 10 u 11 de 64 bits.
-- Conexión a Internet y una API key del proveedor elegido.
-- .NET SDK 8 para compilar. El ejecutable generado incluye .NET.
+<p align="center">
+  <a href="https://github.com/srg-cp/evaluation-fresh/actions/workflows/build.yml"><img src="https://github.com/srg-cp/evaluation-fresh/actions/workflows/build.yml/badge.svg" alt="Compilación"></a>
+  <img src="https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&amp;logoColor=white" alt="Windows 10 y 11">
+  <img src="https://img.shields.io/badge/.NET-8-512BD4?logo=dotnet&amp;logoColor=white" alt=".NET 8">
+  <img src="https://img.shields.io/badge/version-2.0.0-333333" alt="Versión 2.0.0">
+  <img src="https://img.shields.io/badge/modelos-OpenAI%20%2B%20Gemini-4285F4" alt="OpenAI y Gemini">
+</p>
+
+Viso es una aplicación de escritorio para Windows. Con un atajo captura la pantalla o un área guardada, envía la imagen al modelo que elijas y muestra la respuesta como texto sobre la pantalla.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/viso-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/viso-light.png">
+  <img src="docs/images/viso-light.png" alt="Configuración de Viso con el logo y la barra lateral" width="1040">
+</picture>
+
+## Funciones
+
+- Dos tipos de ejercicio: elegir una alternativa o completar un enunciado.
+- Captura de un monitor completo o de un área que puedes guardar.
+- Dos atajos configurables: respuesta completa y respuesta con un límite de caracteres.
+- Texto superpuesto en la esquina inferior derecha o izquierda, con tamaño ajustable.
+- Interfaz con modo claro y oscuro, animaciones y acceso desde la bandeja.
+- OpenAI y Gemini, con una clave independiente para cada proveedor.
+- Ejecutable portable para Windows de 64 bits, con .NET incluido.
+
+## Primeros pasos
+
+1. Abre `Viso.exe`.
+2. En **Modelo de IA**, selecciona el proveedor y modelo, introduce tu API key y pulsa **Guardar**.
+3. En **General**, elige el tipo de enunciado.
+4. En **Captura y atajos**, configura el monitor, el área y tus combinaciones de teclas.
+5. Pulsa **Ocultar** y utiliza un atajo para capturar y enviar la imagen.
+
+| Atajo predeterminado | Qué muestra |
+| --- | --- |
+| **Alt + Mayús + S** | La respuesta completa |
+| **Alt + Mayús + D** | Los primeros N caracteres de la respuesta |
+
+Ambos atajos capturan y envían en una sola acción. El límite de caracteres incluye espacios y signos y solo afecta al texto mostrado; la consulta al modelo es la misma.
+
+En **Respuesta** puedes elegir la esquina y el tamaño del texto. El interruptor de la barra lateral cambia el tema. Pulsa **Guardar** para conservar los ajustes.
+
+El menú del icono junto al reloj permite abrir la configuración, capturar, copiar u ocultar la respuesta y salir. El botón rojo cierra Viso.
 
 ## Compilar
+
+Necesitas Windows 10 u 11 de 64 bits y el SDK de .NET 8. Desde la raíz del repositorio:
 
 ```powershell
 .\build.ps1 -Test
 ```
 
-El ejecutable queda en `dist/Viso.exe`. La opción `-Test` ejecuta pruebas locales con respuestas simuladas; no requiere claves ni consume API.
+El resultado queda en `dist/Viso/Viso.exe`. Es un ejecutable autocontenido; el equipo donde lo uses no necesita instalar .NET.
 
-## Configurar
+Puedes cambiar la carpeta de salida:
 
-1. Abre Viso y entra en **Modelo de IA**. Elige el proveedor y modelo, añade tu API key y pulsa **Guardar**.
-2. En **General**, selecciona el tipo de enunciado.
-3. En **Captura y atajos**, elige el monitor y la captura completa o un área guardada.
-4. Pulsa **Ocultar** y usa uno de los atajos.
+```powershell
+.\build.ps1 -OutputDirectory dist/portable
+```
 
-| Atajo predeterminado | Resultado |
-| --- | --- |
-| Alt + Mayús + S | Respuesta completa |
-| Alt + Mayús + D | Primeros N caracteres de la respuesta |
+Para trabajar con el código, abre `Viso.sln` en Visual Studio o compila la solución con `dotnet build Viso.sln`.
 
-Los dos atajos son configurables. El límite incluye espacios y signos y solo afecta al texto mostrado; la consulta al modelo es la misma.
-
-En **Respuesta** puedes elegir la esquina y el tamaño del texto. El interruptor de la barra lateral cambia entre modo claro y oscuro. Pulsa **Guardar** para conservar los ajustes.
-
-El programa permanece en la bandeja junto al reloj. Su menú permite abrir los ajustes, capturar, copiar u ocultar la respuesta y salir. El botón rojo cierra la aplicación.
+El workflow **Build** compila y ejecuta las pruebas locales en Windows. Si termina correctamente, puedes descargar `Viso-windows-x64` desde la sección **Actions** del repositorio.
 
 ## Claves y privacidad
 
-Puedes crear una clave en [OpenAI](https://platform.openai.com/api-keys) o [Google AI Studio](https://aistudio.google.com/apikey). La disponibilidad, los límites y el costo dependen de tu cuenta y del modelo.
+Obtén tu clave en [OpenAI](https://platform.openai.com/api-keys) o [Google AI Studio](https://aistudio.google.com/apikey). Necesitas conexión a Internet y acceso al modelo seleccionado. Los límites y el costo dependen de tu cuenta y del proveedor.
 
-- Las capturas se envían directamente al proveedor seleccionado por HTTPS. No hay servidor intermediario.
-- Las capturas se mantienen en memoria durante el uso normal.
-- **Recordar claves** las guarda cifradas con Windows DPAPI en `%LOCALAPPDATA%\Viso\settings.json`. Al desactivar la opción y guardar, se eliminan las claves persistentes.
-- OpenAI recibe las solicitudes con `store: false`. Consulta las condiciones de cada proveedor para conocer su retención y uso de datos.
-- Cada consulta puede tener costo. El programa evita envíos simultáneos y no hace reintentos automáticos. Cancelar la espera no anula una solicitud que el proveedor ya haya recibido.
-- Las respuestas pueden contener errores. El programa no garantiza que una solución sea correcta.
+| Dato | Cómo se utiliza |
+| --- | --- |
+| Captura | Se mantiene en memoria durante el uso normal y se envía por HTTPS directamente al proveedor elegido. |
+| API key | Se utiliza para autenticar la consulta. Si activas **Recordar claves**, se guarda cifrada con Windows DPAPI para tu usuario. |
+| Ajustes | Se guardan en `%LOCALAPPDATA%\Viso\settings.json`, fuera del repositorio. |
 
-## Pruebas de escritorio
+Al desactivar **Recordar claves** y guardar, se eliminan las claves persistentes de la configuración de Viso. La aplicación puede leer la configuración de una instalación anterior; los siguientes guardados utilizan la carpeta de Viso. El archivo anterior permanece en su ubicación original.
 
-En una sesión interactiva de Windows:
+No hay un servidor intermediario. Las solicitudes a OpenAI incluyen `store: false`; consulta las condiciones de cada proveedor para conocer su retención y uso de datos.
+
+Cada consulta puede tener costo. Viso evita envíos simultáneos y no hace reintentos automáticos. Cancelar la espera no anula una solicitud que el proveedor ya haya recibido.
+
+Las respuestas pueden contener errores; comprueba las soluciones antes de utilizarlas.
+
+## Estructura
+
+```text
+assets/branding/             Logo original e icono de Windows
+docs/images/                Vistas de la interfaz para este README
+src/Viso/
+  Capture/                  Capturas, áreas y atajos
+  Configuration/            Ajustes y cifrado de claves
+  Models/                   Clientes de API, prompts y respuestas
+  Presentation/             Temas, bandeja y animaciones
+    Windows/                Ventanas y diálogos
+  Diagnostics/              Pruebas locales y evaluación de imágenes
+.github/workflows/          Compilación automática
+Viso.sln                    Solución de Visual Studio
+build.ps1                   Generación del ejecutable portable
+```
+
+Los ejecutables, la configuración local y los informes de prueba están excluidos de Git. El PNG y el SVG del logo están en `assets/branding`; el archivo `.ico` incluye varios tamaños para Windows.
+
+## Pruebas
+
+`build.ps1 -Test` ejecuta pruebas con respuestas simuladas. Comprueba los clientes de API, el cifrado, los atajos, las áreas guardadas, el recorte de texto, los recursos del logo y la compatibilidad de la configuración. No requiere claves ni consume API.
+
+Las pruebas de interfaz necesitan una sesión interactiva de Windows:
 
 ```powershell
-$p = Start-Process .\dist\Viso.exe -ArgumentList '--smoke-test' -Wait -PassThru
-Get-Content .\dist\smoke-test-result.txt
+$p = Start-Process .\dist\Viso\Viso.exe -ArgumentList '--smoke-test' -Wait -PassThru
+Get-Content .\dist\Viso\smoke-test-result.txt
 $p.ExitCode
 ```
 
-Estas pruebas comprueban los controles, los temas, los atajos, la captura de un área y la respuesta superpuesta. Usan consultas simuladas y no modifican la configuración guardada. Los informes y capturas de prueba quedan junto al ejecutable, fuera de Git.
+Comprueban los temas, los controles de ventana, los diálogos, la bandeja, los atajos y la respuesta superpuesta. No modifican tus ajustes. Los informes y capturas de prueba quedan junto al ejecutable.
 
 Para evaluar una imagen con Gemini:
 
 ```powershell
-.\dist\Viso.exe --evaluate-image ejercicio.png --expected c --runs 1
+.\dist\Viso\Viso.exe --evaluate-image ejercicio.png --expected c --runs 1
 ```
 
 Este comando usa la clave de Gemini guardada y realiza una consulta real, que puede tener costo. Admite `--crop x,y,ancho,alto` y hasta tres ejecuciones. Guarda `evaluation-result.json`; la respuesta esperada se usa para comprobar el resultado y no se envía al modelo.

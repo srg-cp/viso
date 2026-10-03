@@ -1,4 +1,4 @@
-param([switch]$Test, [string]$OutputDirectory = 'dist')
+param([switch]$Test, [string]$OutputDirectory = 'dist/Viso')
 $ErrorActionPreference = 'Stop'
 $projectPath = Join-Path $PSScriptRoot 'src/Viso/Viso.csproj'
 $outputPath = Join-Path $PSScriptRoot $OutputDirectory
