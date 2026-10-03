@@ -149,10 +149,17 @@ internal static class SelfTest
             var screenBounds = new System.Drawing.Rectangle(-1920, 100, 1920, 1080);
             var selectedBounds = new System.Drawing.Rectangle(-1800, 250, 600, 400);
             var saved = CaptureArea.Create("test-monitor", screenBounds, selectedBounds);
-            var persisted = JsonSerializer.Deserialize<Settings>(JsonSerializer.Serialize(new Settings { Region = true, SavedArea = saved, HotkeyModifiers = 3, HotkeyVirtualKey = 0x51 }))!;
+            var persisted = JsonSerializer.Deserialize<Settings>(JsonSerializer.Serialize(new Settings { Region = true, SavedArea = saved, HotkeyModifiers = 3, HotkeyVirtualKey = 0x51, ShortHotkeyModifiers = 7, ShortHotkeyVirtualKey = 0x52, MaxResponseCharacters = 6 }))!;
             Check(persisted.Region && persisted.SavedArea!.Resolve("test-monitor", screenBounds) == selectedBounds, "Área guardada se restaura");
             Check(persisted.SavedArea!.Resolve("test-monitor", new System.Drawing.Rectangle(0, 0, 1920, 1080)) == new System.Drawing.Rectangle(120, 150, 600, 400), "Área relativa al monitor");
             Check(persisted.HotkeyModifiers == 3 && persisted.HotkeyVirtualKey == 0x51, "Atajo guardado se restaura");
+            Check(persisted.ShortHotkeyModifiers == 7 && persisted.ShortHotkeyVirtualKey == 0x52 && persisted.MaxResponseCharacters == 6, "Segundo atajo y longitud se restauran");
+            var legacy = JsonSerializer.Deserialize<Settings>("{\"HotkeyModifiers\":3,\"HotkeyVirtualKey\":81}")!;
+            Check(legacy.HotkeyVirtualKey == 81 && legacy.ShortHotkeyVirtualKey == 0x44 && legacy.MaxResponseCharacters == 10, "Configuración anterior conserva el atajo y recibe nuevos valores predeterminados");
+            Check(ResponseDisplay.Limit("c. A.5.7", 1) == "c" && ResponseDisplay.Limit("c. A.5.7", 5) == "c. A." && ResponseDisplay.Limit("c. A.5.7", 100) == "c. A.5.7", "Recorte respeta el máximo sin puntos adicionales");
+            Check(ResponseDisplay.Limit("áéñ", 2) == "áé" && ResponseDisplay.Limit("e\u0301🙂z", 2) == "e\u0301🙂" && ResponseDisplay.Limit("", 1) == "", "Recorte preserva acentos y emojis");
+            try { ResponseDisplay.Limit("texto", 0); throw new Exception("Se aceptó límite cero."); } catch (ArgumentOutOfRangeException) { }
+            log += "PASS: segundo atajo, longitud persistente, compatibilidad y recorte de caracteres sin separar acentos/emojis.\n";
             try { saved.Resolve("other-monitor", screenBounds); throw new Exception("Se aceptó otro monitor."); } catch (ArgumentException) { }
             try { saved.Resolve("test-monitor", new System.Drawing.Rectangle(0, 0, 1280, 720)); throw new Exception("Se aceptó otra resolución."); } catch (ArgumentException) { }
             try { CaptureArea.Create("test-monitor", screenBounds, new System.Drawing.Rectangle(-1800, 250, int.MaxValue, 400)); throw new Exception("Se aceptó un área fuera del monitor."); } catch (ArgumentException) { }

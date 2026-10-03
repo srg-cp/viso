@@ -1,4 +1,4 @@
-param([switch]$Test, [string]$OutputDirectory = 'dist/macos')
+param([switch]$Test, [string]$OutputDirectory = 'dist/interfaz-limpia')
 $ErrorActionPreference = 'Stop'
 $projectPath = Join-Path $PSScriptRoot 'CapturaTutor/CapturaTutor.csproj'
 $outputPath = Join-Path $PSScriptRoot $OutputDirectory

@@ -35,7 +35,7 @@ public sealed class RegionWindow : Window
         canvas.Background = new SolidColorBrush(Color.FromArgb(75, 0, 0, 0));
         Content = canvas;
         var hint = new Border { Background = new SolidColorBrush(Color.FromRgb(16, 23, 34)), CornerRadius = new CornerRadius(8), Padding = new Thickness(16), IsHitTestVisible = false,
-            Child = new TextBlock { Text = "Arrastra para seleccionar el ejercicio · Esc para cancelar", Foreground = Brushes.White, FontSize = 17 } };
+            Child = new TextBlock { Text = "Arrastra para elegir un área · Esc para cancelar", Foreground = Brushes.White, FontSize = 17 } };
         Canvas.SetLeft(hint, 24); Canvas.SetTop(hint, 24);
         canvas.Children.Add(hint);
         canvas.Children.Add(selection);

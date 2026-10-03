@@ -26,7 +26,7 @@ public partial class App : Application
         instance = new Mutex(true, smokeTest ? "Local\\CapturaTutor.SmokeTest" : "Local\\CapturaTutor.Desktop", out bool first);
         if (!first)
         {
-            MessageBox.Show("CapturaTutor ya está abierto. Búscalo en la barra de tareas o junto al reloj.", "CapturaTutor");
+            MessageBox.Show("CapturaTutor ya está abierto. Busca su icono junto al reloj.", "CapturaTutor");
             Shutdown();
             return;
         }
@@ -43,7 +43,7 @@ public partial class App : Application
             try
             {
                 await window.SmokeTestAsync();
-                File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "smoke-test-result.txt"), "PASS: ventana con controles propios, maximización/restauración, minimización, navegación y vista compacta, tipo de enunciado, edición de modelo con controles nuevos, captura y envío automáticos sin abrir la ventana principal ni duplicar consultas, respuesta transparente sin activación y con clics a través, ambas esquinas, área guardada y atajos. Sin API real ni cambios en la configuración.");
+                File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "smoke-test-result.txt"), "PASS: dos atajos independientes, intercambio y conflictos, recorte configurable y modo completo sin recorte, ventana con controles propios, maximización/restauración, minimización, navegación y vista compacta, tipo de enunciado, selector de modelo sin escritura, captura y envío automáticos sin abrir la ventana principal ni duplicar consultas, respuesta transparente sin activación y con clics a través, ambas esquinas, área guardada y atajos. Sin API real ni cambios en la configuración.");
                 Shutdown(0);
             }
             catch (Exception ex)

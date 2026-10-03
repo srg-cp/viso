@@ -88,7 +88,7 @@ public partial class MainWindow
     {
         Border[] panels = { GeneralPanel, CaptureOptionsPanel, ModelPanel, ResponsePanel };
         RadioButton[] navigation = { GeneralNav, CaptureNav, ModelNav, ResponseNav };
-        string[] titles = { "General", "Captura y atajo", "Modelo de IA", "Respuesta" };
+        string[] titles = { "General", "Captura y atajos", "Modelo de IA", "Respuesta" };
         if (index < 0 || index >= panels.Length) return;
         for (int i = 0; i < panels.Length; i++) panels[i].Visibility = i == index ? Visibility.Visible : Visibility.Collapsed;
         PaneTitle.Text = titles[index];

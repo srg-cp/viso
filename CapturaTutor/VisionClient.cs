@@ -25,7 +25,7 @@ public sealed class VisionClient : IDisposable
     {
         if (image.Length == 0) throw new ArgumentException("La captura está vacía.");
         if (image.Length > 20 * 1024 * 1024) throw new ArgumentException("La captura supera 20 MB. Selecciona solo el ejercicio.");
-        if (string.IsNullOrWhiteSpace(model)) throw new ArgumentException("Selecciona un modelo con visión.");
+        if (string.IsNullOrWhiteSpace(model)) throw new ArgumentException("Selecciona un modelo.");
         var payload = new Dictionary<string, object>
         {
             ["model"] = model,
@@ -42,7 +42,7 @@ public sealed class VisionClient : IDisposable
     }
     public async Task<Answer> SolveAsync(byte[] image, string key, string model, string task, string instructions, CancellationToken token, string provider = "OpenAI")
     {
-        if (string.IsNullOrWhiteSpace(key)) throw new ArgumentException("Introduce tu API key en Configuración.");
+        if (string.IsNullOrWhiteSpace(key)) throw new ArgumentException("Añade tu API key.");
         if (provider == "Gemini") return await SolveGeminiAsync(image, key, model, task, token);
         if (provider != "OpenAI") throw new ArgumentException("Proveedor no reconocido.");
         using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/responses");
@@ -66,20 +66,20 @@ public sealed class VisionClient : IDisposable
         if (detail.Length > 450) detail = detail[..450];
         string friendly = status switch
         {
-            HttpStatusCode.Unauthorized => "API key inválida o revocada. Revisa la clave en Configuración.",
-            HttpStatusCode.Forbidden => "Revisa la API key, los permisos de tu cuenta y el acceso a este modelo.",
-            HttpStatusCode.NotFound => "Modelo no disponible. Selecciona otro o comprueba su identificador.",
-            HttpStatusCode.TooManyRequests => "Límite de uso o saldo insuficiente. Revisa la facturación y los límites de tu cuenta API.",
-            HttpStatusCode.BadRequest => provider == "Gemini" ? "Gemini rechazó la solicitud. Revisa la API key y que el modelo admita imágenes y generateContent." : "La API rechazó la solicitud. Comprueba que el modelo admita imágenes y Responses API.",
-            _ => $"El servicio devolvió un error ({(int)status}). Inténtalo de nuevo más tarde."
+            HttpStatusCode.Unauthorized => "API key inválida. Revisa la clave.",
+            HttpStatusCode.Forbidden => "Tu cuenta no tiene acceso a este modelo. Revisa la clave y los permisos.",
+            HttpStatusCode.NotFound => "Modelo no disponible. Elige otro.",
+            HttpStatusCode.TooManyRequests => "Límite de uso o saldo insuficiente. Revisa tu cuenta.",
+            HttpStatusCode.BadRequest => provider == "Gemini" ? "Gemini rechazó la consulta. Revisa la clave o elige otro modelo." : "El proveedor rechazó la consulta. Elige otro modelo.",
+            _ => $"Error del proveedor ({(int)status}). Inténtalo de nuevo."
         };
-        return friendly + (string.IsNullOrWhiteSpace(detail) ? "" : "\n\nDetalle del servicio: " + detail);
+        return friendly + (string.IsNullOrWhiteSpace(detail) ? "" : "\n\nDetalle: " + detail);
     }
     internal static string CreateGeminiPayload(byte[] image, string task, string model = "gemini-3.5-flash-lite")
     {
         // The inline request limit includes Base64 overhead and the rest of the JSON body.
         if (image.Length == 0 || image.Length > 14 * 1024 * 1024)
-            throw new ArgumentException("Para Gemini, selecciona una captura entre 1 byte y 14 MB.");
+            throw new ArgumentException("La captura está vacía o supera los 14 MB.");
         var generation = new Dictionary<string, object> { ["maxOutputTokens"] = 16384 };
         string id = model.StartsWith("models/", StringComparison.Ordinal) ? model[7..] : model;
         // Output brevity is independent of internal reasoning. Do not leave Lite at minimal/off.
@@ -158,7 +158,7 @@ public sealed class VisionClient : IDisposable
         var root = doc.RootElement;
         var parts = new List<string>();
         if (root.TryGetProperty("error", out var error) && error.ValueKind == JsonValueKind.Object)
-            throw new InvalidOperationException("El modelo no pudo completar la respuesta. Prueba de nuevo o cambia de modelo.");
+            throw new InvalidOperationException("El modelo no pudo responder. Inténtalo de nuevo.");
         if (root.TryGetProperty("output", out var output))
             foreach (var item in output.EnumerateArray())
                 if (item.TryGetProperty("content", out var content))
@@ -169,9 +169,9 @@ public sealed class VisionClient : IDisposable
                         if (type == "refusal" && part.TryGetProperty("refusal", out var refusal)) parts.Add(refusal.GetString() ?? "");
                     }
         string answer = string.Join("\n\n", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
-        if (string.IsNullOrWhiteSpace(answer)) throw new InvalidOperationException("El modelo no devolvió texto. Puede haber agotado el límite de razonamiento. Prueba una región más pequeña u otro modelo.");
+        if (string.IsNullOrWhiteSpace(answer)) throw new InvalidOperationException("El modelo no devolvió texto. Prueba otro modelo.");
         if (root.TryGetProperty("status", out var status) && status.GetString() == "incomplete")
-            answer += "\n\n[Respuesta incompleta: el servicio alcanzó un límite. Reduce el número de ejercicios y vuelve a consultar.]";
+            answer += "\n\n[Respuesta incompleta. Vuelve a consultar.]";
         string usage = "";
         if (root.TryGetProperty("usage", out var u) && u.ValueKind == JsonValueKind.Object && u.TryGetProperty("input_tokens", out var i) && u.TryGetProperty("output_tokens", out var o))
             usage = $"Tokens: {i.GetInt32():N0} entrada · {o.GetInt32():N0} salida";

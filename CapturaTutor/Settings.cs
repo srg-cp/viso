@@ -17,6 +17,9 @@ public sealed class Settings
     public CaptureArea? SavedArea { get; set; }
     public uint HotkeyModifiers { get; set; } = 5;
     public int HotkeyVirtualKey { get; set; } = 0x53;
+    public uint ShortHotkeyModifiers { get; set; } = 5;
+    public int ShortHotkeyVirtualKey { get; set; } = 0x44;
+    public int MaxResponseCharacters { get; set; } = 10;
     public bool PreviewBeforeSend { get; set; } = false;
     public bool RememberKey { get; set; }
     public string EncryptedKey { get; set; } = "";
@@ -36,19 +39,27 @@ public sealed class Settings
         {
             var settings = JsonSerializer.Deserialize<Settings>(File.ReadAllText(FilePath)) ?? new Settings();
             settings.FontSize = Math.Clamp(settings.FontSize, 12, 24);
+            settings.MaxResponseCharacters = Math.Clamp(settings.MaxResponseCharacters, 1, 10000);
             settings.Provider = settings.Provider == "Gemini" ? "Gemini" : "OpenAI";
             settings.Task = settings.Task == TaskPrompts.Complete || settings.Task == "Completar el enunciado" ? TaskPrompts.Complete : TaskPrompts.Alternative;
             if (!GlobalHotkey.IsValid(settings.HotkeyModifiers, settings.HotkeyVirtualKey))
             {
                 settings.HotkeyModifiers = 5;
                 settings.HotkeyVirtualKey = 0x53;
-                warning = "El atajo guardado no es válido. Se restauró Alt + Mayús + S.";
+                warning = "Atajo restablecido: Alt + Mayús + S.";
+            }
+            if (!GlobalHotkey.IsValid(settings.ShortHotkeyModifiers, settings.ShortHotkeyVirtualKey) ||
+                (settings.ShortHotkeyModifiers == settings.HotkeyModifiers && settings.ShortHotkeyVirtualKey == settings.HotkeyVirtualKey))
+            {
+                settings.ShortHotkeyModifiers = 5; settings.ShortHotkeyVirtualKey = 0x44;
+                if (settings.HotkeyModifiers == 5 && settings.HotkeyVirtualKey == 0x44) settings.ShortHotkeyModifiers = 7;
+                warning = "Se restableció el atajo de respuesta recortada.";
             }
             return settings;
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
         {
-            warning = "No se pudo leer la configuración. Vuelve a configurar tu clave y modelo.";
+            warning = "No se pudo cargar la configuración. Revisa tus ajustes.";
             return new Settings();
         }
     }

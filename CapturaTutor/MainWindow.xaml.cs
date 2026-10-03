@@ -30,13 +30,16 @@ public partial class MainWindow : Window
     private bool exiting;
     private IntPtr handle;
     private Forms.Screen? answerScreen;
-    private GlobalHotkey? hotkey;
+    private CaptureHotkeys? hotkeys;
+    private GlobalHotkey? hotkey => hotkeys?.Full;
+    private uint draftShortModifiers;
+    private int draftShortVirtualKey;
     private uint draftModifiers;
     private int draftVirtualKey;
     private bool configReady;
     private bool loadingProvider;
     private string activeProvider = "OpenAI";
-    private string CurrentModel => ModelBox.Text.Trim();
+    private string CurrentModel => ModelBox.SelectedItem as string ?? "";
     private string CurrentKey => ProviderBox.SelectedIndex == 1 ? GeminiKeyBox.Password.Trim() : KeyBox.Password.Trim();
 
     public MainWindow(HttpMessageHandler? testHandler = null, bool persistSettings = true)
@@ -54,6 +57,10 @@ public partial class MainWindow : Window
         draftModifiers = settings.HotkeyModifiers;
         draftVirtualKey = settings.HotkeyVirtualKey;
         HotkeyBox.Text = GlobalHotkey.Label(draftModifiers, draftVirtualKey);
+        draftShortModifiers = settings.ShortHotkeyModifiers;
+        draftShortVirtualKey = settings.ShortHotkeyVirtualKey;
+        ShortHotkeyBox.Text = GlobalHotkey.Label(draftShortModifiers, draftShortVirtualKey);
+        MaxCharactersBox.Text = settings.MaxResponseCharacters.ToString();
         RememberCheck.IsChecked = settings.RememberKey;
         loadingProvider = true;
         ProviderBox.SelectedIndex = settings.Provider == "Gemini" ? 1 : 0;
@@ -63,27 +70,28 @@ public partial class MainWindow : Window
         CornerBox.SelectedIndex = settings.Corner == "left" ? 1 : 0;
         TopmostCheck.IsChecked = settings.Topmost;
         FontBox.Text = settings.FontSize.ToString();
-        var task = TaskBox.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (string)i.Content == settings.Task);
+        var task = TaskBox.Items.Cast<ComboBoxItem>().FirstOrDefault(i => ((string?)i.Tag == "complete" ? TaskPrompts.Complete : TaskPrompts.Alternative) == settings.Task);
         if (task != null) TaskBox.SelectedItem = task;
         try { KeyBox.Password = settings.ReadKey(); }
         catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or FormatException)
-        { warning = "No se pudo descifrar la clave guardada. Introduce tu API key otra vez."; }
+        { warning = "Vuelve a introducir tu API key de OpenAI."; }
         try { GeminiKeyBox.Password = settings.ReadGeminiKey(); }
         catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or FormatException)
-        { warning = "No se pudo descifrar la clave de Gemini. Introdúcela otra vez."; }
+        { warning = "Vuelve a introducir tu API key de Gemini."; }
         ModelSummary.Text = activeProvider + " · " + CurrentModel;
-        StatusText.Text = !string.IsNullOrEmpty(warning) ? warning : string.IsNullOrEmpty(CurrentKey) ? "Configura tu API key para comenzar." : "Listo. Captura el enunciado.";
+        StatusText.Text = !string.IsNullOrEmpty(warning) ? warning : string.IsNullOrEmpty(CurrentKey) ? "Añade tu API key." : "Listo.";
         tray = new Forms.NotifyIcon { Icon = System.Drawing.SystemIcons.Application, Text = "CapturaTutor", Visible = true };
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Abrir CapturaTutor", null, (_, _) => Dispatcher.Invoke(ShowMain));
-        menu.Items.Add("Capturar pantalla", null, (_, _) => Dispatcher.InvokeAsync(async () => await CaptureAsync()));
+        menu.Items.Add("Capturar · respuesta completa", null, (_, _) => Dispatcher.InvokeAsync(async () => await CaptureAsync()));
+        menu.Items.Add("Capturar · respuesta recortada", null, (_, _) => Dispatcher.InvokeAsync(async () => await CaptureAsync(true)));
         menu.Items.Add("Ver respuesta", null, (_, _) => Dispatcher.Invoke(ShowAnswer));
         menu.Items.Add("Ocultar respuesta", null, (_, _) => Dispatcher.Invoke(answer.Hide));
         menu.Items.Add("Copiar respuesta", null, (_, _) => Dispatcher.Invoke(() =>
         {
             if (!string.IsNullOrWhiteSpace(answer.ResponseText))
                 try { Clipboard.SetText(answer.ResponseText); }
-                catch (ExternalException) { StatusText.Text = "Portapapeles ocupado. Inténtalo de nuevo."; }
+                catch (ExternalException) { StatusText.Text = "No se pudo copiar. Inténtalo de nuevo."; }
         }));
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Salir", null, (_, _) => Dispatcher.Invoke(Close));
@@ -94,15 +102,16 @@ public partial class MainWindow : Window
             handle = new WindowInteropHelper(this).Handle;
             ConfigureChrome();
             HwndSource.FromHwnd(handle)?.AddHook(WindowHook);
-            hotkey = new GlobalHotkey(handle);
-            if (!hotkey.TryReplace(settings.HotkeyModifiers, settings.HotkeyVirtualKey, out string error)) StatusText.Text = error;
+            hotkeys = new CaptureHotkeys(handle);
+            hotkeys.Initialize(settings.HotkeyModifiers, settings.HotkeyVirtualKey, settings.ShortHotkeyModifiers, settings.ShortHotkeyVirtualKey, out string error);
+            if (!string.IsNullOrEmpty(error)) StatusText.Text = error;
             UpdateHotkeyDisplay();
         };
         Closing += (_, _) =>
         {
             exiting = true;
             requestCancellation?.Cancel();
-            hotkey?.Dispose();
+            hotkeys?.Dispose();
             tray.Visible = false;
             tray.Dispose();
             vision.Dispose();
@@ -128,10 +137,16 @@ public partial class MainWindow : Window
     private IntPtr WindowHook(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (HandleChromeMessage(message, lParam)) { handled = true; return IntPtr.Zero; }
-        if (message == 0x0312 && hotkey?.Registered == true && wParam.ToInt32() == hotkey.Id)
+        if (message == 0x0312)
         {
-            handled = true;
-            if (!HotkeyBox.IsKeyboardFocusWithin) _ = CaptureAsync();
+            int id = wParam.ToInt32();
+            bool full = hotkeys?.Full?.Registered == true && id == hotkeys.Full.Id;
+            bool shortAnswer = hotkeys?.Short?.Registered == true && id == hotkeys.Short.Id;
+            if (full || shortAnswer)
+            {
+                handled = true;
+                if (!HotkeyBox.IsKeyboardFocusWithin && !ShortHotkeyBox.IsKeyboardFocusWithin) _ = CaptureAsync(shortAnswer);
+            }
         }
         return IntPtr.Zero;
     }
@@ -142,8 +157,11 @@ public partial class MainWindow : Window
     }
     private void ReadSettings(bool persist)
     {
+        if (!int.TryParse(MaxCharactersBox.Text, out int maxCharacters) || maxCharacters < 1 || maxCharacters > 10000)
+            throw new ArgumentException("El límite debe estar entre 1 y 10.000 caracteres.");
+        settings.MaxResponseCharacters = maxCharacters;
         settings.Provider = activeProvider;
-        if (string.IsNullOrWhiteSpace(CurrentModel)) throw new ArgumentException("Escribe o selecciona un modelo.");
+        if (string.IsNullOrWhiteSpace(CurrentModel)) throw new ArgumentException("Selecciona un modelo.");
         if (activeProvider == "Gemini") settings.GeminiModel = CurrentModel;
         else settings.Model = CurrentModel;
         settings.Corner = CornerBox.SelectedIndex == 1 ? "left" : "right";
@@ -153,7 +171,7 @@ public partial class MainWindow : Window
         settings.RememberKey = RememberCheck.IsChecked == true;
         settings.Topmost = TopmostCheck.IsChecked == true;
         settings.FontSize = int.TryParse(FontBox.Text, out int size) ? Math.Clamp(size, 12, 24) : 16;
-        settings.Task = (TaskBox.SelectedItem as ComboBoxItem)?.Content as string ?? TaskPrompts.Alternative;
+        settings.Task = (TaskBox.SelectedItem as ComboBoxItem)?.Tag as string == "complete" ? TaskPrompts.Complete : TaskPrompts.Alternative;
         settings.Instructions = "";
         ModelSummary.Text = activeProvider + " · " + CurrentModel;
         if (persist && persistSettings) settings.Save(KeyBox.Password.Trim(), GeminiKeyBox.Password.Trim());
@@ -164,24 +182,33 @@ public partial class MainWindow : Window
         e.Handled = true;
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         if (key is Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin) return;
-        if (key == Key.Escape) { draftModifiers = settings.HotkeyModifiers; draftVirtualKey = settings.HotkeyVirtualKey; HotkeyBox.Text = GlobalHotkey.Label(draftModifiers, draftVirtualKey); UpdateHotkeyDisplay(); return; }
+        bool shortAnswer = ReferenceEquals(sender, ShortHotkeyBox);
+        if (key == Key.Escape)
+        {
+            if (shortAnswer) { draftShortModifiers = settings.ShortHotkeyModifiers; draftShortVirtualKey = settings.ShortHotkeyVirtualKey; ShortHotkeyBox.Text = GlobalHotkey.Label(draftShortModifiers, draftShortVirtualKey); }
+            else { draftModifiers = settings.HotkeyModifiers; draftVirtualKey = settings.HotkeyVirtualKey; HotkeyBox.Text = GlobalHotkey.Label(draftModifiers, draftVirtualKey); }
+            UpdateHotkeyDisplay(); return;
+        }
         uint modifiers = 0;
         if ((Keyboard.Modifiers & ModifierKeys.Alt) != 0) modifiers |= 1;
         if ((Keyboard.Modifiers & ModifierKeys.Control) != 0) modifiers |= 2;
         if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0) modifiers |= 4;
         if ((Keyboard.Modifiers & ModifierKeys.Windows) != 0) modifiers |= 8;
         int virtualKey = KeyInterop.VirtualKeyFromKey(key);
-        if (!GlobalHotkey.IsValid(modifiers, virtualKey)) { HotkeyStatus.Text = "Usa Ctrl, Alt, Mayús o Windows junto con otra tecla."; return; }
-        draftModifiers = modifiers; draftVirtualKey = virtualKey;
-        HotkeyBox.Text = GlobalHotkey.Label(modifiers, virtualKey);
-        HotkeyStatus.Text = "Pulsa Guardar configuración para activar este atajo. Esc restaura el anterior.";
+        if (!GlobalHotkey.IsValid(modifiers, virtualKey)) { (shortAnswer ? ShortHotkeyStatus : HotkeyStatus).Text = "Combina Ctrl, Alt, Mayús o Windows con otra tecla."; return; }
+        if (shortAnswer) { draftShortModifiers = modifiers; draftShortVirtualKey = virtualKey; }
+        else { draftModifiers = modifiers; draftVirtualKey = virtualKey; }
+        ((TextBox)sender).Text = GlobalHotkey.Label(modifiers, virtualKey);
+        (shortAnswer ? ShortHotkeyStatus : HotkeyStatus).Text = "Sin guardar. Esc para cancelar.";
     }
     private void UpdateHotkeyDisplay()
     {
         string label = GlobalHotkey.Label(settings.HotkeyModifiers, settings.HotkeyVirtualKey);
         bool enabled = hotkey?.Registered == true;
-        HotkeyStatus.Text = enabled ? "Atajo activo: " + label : "Atajo no disponible. Elige otra combinación y guarda.";
-        CaptureHint.Text = (enabled ? label + " para capturar y enviar. " : "Configura un atajo para capturar y enviar. ") + "La imagen se envía al proveedor elegido; el uso de la API puede tener costo.";
+        HotkeyStatus.Text = enabled ? "Activo: " + label : "Atajo ocupado. Elige otro.";
+        string shortLabel = GlobalHotkey.Label(settings.ShortHotkeyModifiers, settings.ShortHotkeyVirtualKey);
+        ShortHotkeyStatus.Text = hotkeys?.Short?.Registered == true ? "Activo: " + shortLabel : "Atajo ocupado. Elige otro.";
+        CaptureHint.Text = "Completa: " + label + "\nRecortada: " + shortLabel;
         string trayText = enabled ? "CapturaTutor · " + label : "CapturaTutor · atajo no disponible";
         tray.Text = trayText.Length > 63 ? trayText[..63] : trayText;
     }
@@ -190,13 +217,13 @@ public partial class MainWindow : Window
     {
         if (!configReady) return;
         SelectAreaButton.IsEnabled = !busy && AreaBox.SelectedIndex == 1;
-        if (AreaBox.SelectedIndex == 0) { AreaSummary.Text = "Se capturará el monitor completo. El área guardada se conserva para reutilizarla."; return; }
-        if (settings.SavedArea == null) { AreaSummary.Text = "Selecciona y guarda un área una vez. Las siguientes capturas usarán ese mismo rectángulo."; return; }
+        if (AreaBox.SelectedIndex == 0) { AreaSummary.Text = ""; return; }
+        if (settings.SavedArea == null) { AreaSummary.Text = "No hay un área guardada."; return; }
         try
         {
             var screen = SelectedScreen();
             var bounds = settings.SavedArea.Resolve(screen.DeviceName, screen.Bounds);
-            AreaSummary.Text = $"Área guardada: {bounds.Width} × {bounds.Height} píxeles · X {settings.SavedArea.X}, Y {settings.SavedArea.Y}. Se reutilizará en cada captura.";
+            AreaSummary.Text = $"Área: {bounds.Width} × {bounds.Height} px";
         }
         catch (ArgumentException ex) { AreaSummary.Text = ex.Message; }
     }
@@ -213,12 +240,12 @@ public partial class MainWindow : Window
             Hide(); answer.Hide();
             await Task.Delay(300);
             var selector = new RegionWindow(ScreenCapture.Take(screen.Bounds));
-            if (selector.ShowDialog() != true || selector.Selected == null) { StatusText.Text = "Selección cancelada. Se conserva el área anterior."; return; }
+            if (selector.ShowDialog() != true || selector.Selected == null) { StatusText.Text = "Selección cancelada."; return; }
             settings.SavedArea = CaptureArea.Create(screen.DeviceName, screen.Bounds, selector.Selected.Value);
             settings.Region = true;
             AreaBox.SelectedIndex = 1;
             settings.Save(KeyBox.Password.Trim(), GeminiKeyBox.Password.Trim());
-            StatusText.Text = "Área guardada. Las próximas capturas usarán ese mismo rectángulo.";
+            StatusText.Text = "Área guardada.";
         }
         catch (Exception ex) { settings.SavedArea = previousArea; StatusText.Text = "No se pudo guardar el área: " + ex.Message; }
         finally
@@ -235,10 +262,13 @@ public partial class MainWindow : Window
             ? new[] { "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite", "gemini-3.5-flash" }
             : new[] { "gpt-5.4-mini", "gpt-5.4" };
         foreach (string model in models) ModelBox.Items.Add(model);
-        ModelBox.Text = activeProvider == "Gemini" ? settings.GeminiModel : settings.Model;
+        string savedModel = activeProvider == "Gemini" ? settings.GeminiModel : settings.Model;
+        // Keep an existing saved model available without allowing free typing.
+        if (!models.Contains(savedModel)) ModelBox.Items.Add(savedModel);
+        ModelBox.SelectedItem = savedModel;
         ModelHelp.Text = activeProvider == "Gemini"
-            ? "Razonamiento alto y lectura de imagen en alta resolución. Flash-Lite: menor costo. Flash: mayor capacidad. Este ajuste puede aumentar el tiempo y consumo. 2.5 Lite requiere acceso previo de tu cuenta."
-            : "GPT-5.4 mini: opción económica. GPT-5.4: para preguntas más complejas.";
+            ? "Flash-Lite cuesta menos; Flash ofrece mayor capacidad."
+            : "Mini cuesta menos; GPT-5.4 ofrece mayor capacidad.";
         ModelSummary.Text = activeProvider + " · " + CurrentModel;
     }
     private void ProviderChanged(object sender, SelectionChangedEventArgs e)
@@ -267,7 +297,7 @@ public partial class MainWindow : Window
         if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
         Activate();
     }
-    private async Task CaptureAsync()
+    private async Task CaptureAsync(bool shortAnswer = false)
     {
         if (busy || exiting) return;
         bool wasVisible = IsVisible;
@@ -278,9 +308,10 @@ public partial class MainWindow : Window
             // Never leave an old image ready to send after a failed recapture.
             capture = null;
             ReadSettings(true);
+            int maxCharacters = settings.MaxResponseCharacters;
             var screen = SelectedScreen();
             var captureBounds = settings.Region
-                ? (settings.SavedArea ?? throw new ArgumentException("Primero selecciona y guarda un área en Configuración.")).Resolve(screen.DeviceName, screen.Bounds)
+                ? (settings.SavedArea ?? throw new ArgumentException("Elige un área antes de capturar.")).Resolve(screen.DeviceName, screen.Bounds)
                 : screen.Bounds;
             SetBusy(true);
             Hide(); answer.Hide();
@@ -290,7 +321,7 @@ public partial class MainWindow : Window
             StatusText.Text = $"Captura lista: {next.Bounds.Width} × {next.Bounds.Height}.";
             captured = true;
             SetBusy(false);
-            await SendAsync();
+            await SendAsync(shortAnswer, maxCharacters);
         }
         catch (Exception ex)
         {
@@ -308,13 +339,13 @@ public partial class MainWindow : Window
             }
         }
     }
-    private async Task SendAsync()
+    private async Task SendAsync(bool shortAnswer, int maxCharacters)
     {
         if (busy || capture == null || exiting) return;
         if (string.IsNullOrWhiteSpace(CurrentKey))
         {
             SelectSection(2);
-            StatusText.Text = $"Introduce tu API key de {activeProvider} y guarda la configuración.";
+            StatusText.Text = $"Añade tu API key de {activeProvider}.";
             ShowMain();
             if (activeProvider == "Gemini") GeminiKeyBox.Focus(); else KeyBox.Focus();
             return;
@@ -331,21 +362,22 @@ public partial class MainWindow : Window
             answerScreen = SelectedScreen();
             requestCancellation = new CancellationTokenSource();
             SetBusy(true);
-            StatusText.Text = "Analizando el ejercicio… Puedes cancelar la espera.";
+            StatusText.Text = "Consultando…";
             answer.Hide();
             var timer = Stopwatch.StartNew();
             var result = await vision.SolveAsync(png, key, model, task, instructions, requestCancellation.Token, provider);
             if (exiting) return;
             timer.Stop();
             ReadSettings(false);
-            answer.Present(result.Text, model, result.Usage + $" · {timer.Elapsed.TotalSeconds:F1} s", settings, answerScreen);
-            StatusText.Text = "Respuesta lista en la ventana flotante.";
+            string displayed = shortAnswer ? ResponseDisplay.Limit(result.Text, maxCharacters) : result.Text;
+            answer.Present(displayed, model, result.Usage + $" · {timer.Elapsed.TotalSeconds:F1} s", settings, answerScreen);
+            StatusText.Text = "Respuesta lista.";
             hasResponse = true;
         }
         catch (OperationCanceledException)
         {
             if (exiting) return;
-            string text = requestCancellation?.IsCancellationRequested == true ? "Consulta cancelada. Si ya se envió, el proveedor puede haber procesado la solicitud." : "El modelo tardó más de 5 minutos. Prueba una región más pequeña o vuelve a consultar.";
+            string text = requestCancellation?.IsCancellationRequested == true ? "Consulta cancelada." : "Se agotó el tiempo de espera. Inténtalo de nuevo.";
             StatusText.Text = text;
             answer.Present(text, CurrentModel, "Consulta detenida", settings, answerScreen ?? SelectedScreen());
             hasResponse = true;
@@ -353,8 +385,8 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             if (exiting) return;
-            string text = ex is HttpRequestException ? "No se pudo conectar con el proveedor. Comprueba tu conexión a Internet." : ex.Message;
-            StatusText.Text = "La consulta no se completó. Revisa el detalle en la respuesta.";
+            string text = ex is HttpRequestException ? "No se pudo conectar. Revisa tu conexión." : ex.Message;
+            StatusText.Text = "No se pudo obtener la respuesta.";
             answer.Present(text, CurrentModel, "No se pudo completar la consulta", settings, answerScreen ?? SelectedScreen());
             hasResponse = true;
         }
@@ -373,31 +405,32 @@ public partial class MainWindow : Window
     }
     private void SaveClick(object sender, RoutedEventArgs e)
     {
-        uint previousModifiers = settings.HotkeyModifiers;
-        int previousVirtualKey = settings.HotkeyVirtualKey;
+        var previous = (settings.HotkeyModifiers, settings.HotkeyVirtualKey, settings.ShortHotkeyModifiers, settings.ShortHotkeyVirtualKey, settings.MaxResponseCharacters);
+        bool changedHotkeys = false;
         try
         {
-            string error = "No se pudo registrar el atajo.";
-            if (hotkey == null || !hotkey.TryReplace(draftModifiers, draftVirtualKey, out error))
+            ReadSettings(false);
+            string error = "No se pudieron registrar los atajos.";
+            if (hotkeys == null || !hotkeys.TryReplace(draftModifiers, draftVirtualKey, draftShortModifiers, draftShortVirtualKey, out error))
             {
-                StatusText.Text = hotkey == null ? "No se pudo registrar el atajo." : error;
-                UpdateHotkeyDisplay();
-                return;
+                settings.MaxResponseCharacters = previous.MaxResponseCharacters;
+                StatusText.Text = error; UpdateHotkeyDisplay(); return;
             }
-            settings.HotkeyModifiers = draftModifiers;
-            settings.HotkeyVirtualKey = draftVirtualKey;
+            changedHotkeys = true;
+            settings.HotkeyModifiers = draftModifiers; settings.HotkeyVirtualKey = draftVirtualKey;
+            settings.ShortHotkeyModifiers = draftShortModifiers; settings.ShortHotkeyVirtualKey = draftShortVirtualKey;
             ReadSettings(true);
-            UpdateHotkeyDisplay();
-            UpdateCaptureOptions();
+            UpdateHotkeyDisplay(); UpdateCaptureOptions();
             answer.ApplySettings(settings, SelectedScreen());
-            StatusText.Text = "Configuración guardada.";
+            StatusText.Text = "Guardado.";
         }
         catch (Exception ex)
         {
-            settings.HotkeyModifiers = previousModifiers; settings.HotkeyVirtualKey = previousVirtualKey;
-            if (hotkey != null && !hotkey.TryReplace(previousModifiers, previousVirtualKey, out _)) hotkey.Dispose();
-            UpdateHotkeyDisplay();
-            StatusText.Text = "No se pudo guardar: " + ex.Message;
+            settings.HotkeyModifiers = previous.HotkeyModifiers; settings.HotkeyVirtualKey = previous.HotkeyVirtualKey;
+            settings.ShortHotkeyModifiers = previous.ShortHotkeyModifiers; settings.ShortHotkeyVirtualKey = previous.ShortHotkeyVirtualKey;
+            settings.MaxResponseCharacters = previous.MaxResponseCharacters;
+            if (changedHotkeys && hotkeys != null && !hotkeys.TryReplace(previous.HotkeyModifiers, previous.HotkeyVirtualKey, previous.ShortHotkeyModifiers, previous.ShortHotkeyVirtualKey, out _)) hotkeys.Dispose();
+            UpdateHotkeyDisplay(); StatusText.Text = "No se pudo guardar: " + ex.Message;
         }
     }
     private void TrayClick(object sender, RoutedEventArgs e) => Hide();
@@ -414,6 +447,13 @@ public partial class MainWindow : Window
         if (WindowStyle != WindowStyle.None || FindName("CloseWindowButton") == null || FindName("MinimizeWindowButton") == null || FindName("ZoomWindowButton") == null)
             throw new InvalidOperationException("La ventana debe usar sus tres controles propios.");
         if (TaskBox.Items.Count != 2) throw new InvalidOperationException("Solo deben existir dos tareas.");
+        var initialFull = hotkeys?.Full; var initialShort = hotkeys?.Short;
+        bool shortWasRegistered = initialShort?.Registered == true;
+        MaxCharactersBox.Text = "0";
+        SaveClick(this, new RoutedEventArgs());
+        if (hotkeys?.Full != initialFull || hotkeys?.Short != initialShort || (initialShort?.Registered == true) != shortWasRegistered)
+            throw new InvalidOperationException("Una longitud inválida cambió los atajos existentes.");
+        MaxCharactersBox.Text = "10";
         TaskBox.SelectedIndex = 1;
         ReadSettings(false);
         if (settings.Task != TaskPrompts.Complete) throw new InvalidOperationException("No se aplicó el tipo de enunciado desde Configuración.");
@@ -426,20 +466,19 @@ public partial class MainWindow : Window
         string originalOpenAiModel = settings.Model;
         string originalGeminiModel = settings.GeminiModel;
         ProviderBox.SelectedIndex = 0;
-        ModelBox.Text = "gpt-5.4";
+        ModelBox.SelectedItem = "gpt-5.4";
         ProviderBox.SelectedIndex = 1;
         if (ModelBox.Items.Count != 4 || !CurrentModel.StartsWith("gemini-")) throw new InvalidOperationException("Modelos de Gemini incorrectos.");
-        ModelBox.Text = "gemini-3.1-flash-lite";
+        ModelBox.SelectedItem = "gemini-3.1-flash-lite";
         ProviderBox.SelectedIndex = 0;
         if (CurrentModel != "gpt-5.4") throw new InvalidOperationException("Se perdió el modelo OpenAI al cambiar de proveedor.");
         ProviderBox.SelectedIndex = 1;
         if (CurrentModel != "gemini-3.1-flash-lite") throw new InvalidOperationException("Se perdió el modelo Gemini al cambiar de proveedor.");
         ModelBox.ApplyTemplate();
-        if (ModelBox.Template.FindName("PART_EditableTextBox", ModelBox) is not TextBox modelInput)
-            throw new InvalidOperationException("El selector de modelo debe permitir escribir un modelo personalizado.");
-        modelInput.Text = "modelo-personalizado";
-        if (CurrentModel != "modelo-personalizado") throw new InvalidOperationException("El nuevo diseño no permite editar el modelo.");
-        ModelBox.Text = "gemini-3.1-flash-lite";
+        if (ModelBox.IsEditable || ModelBox.Template.FindName("PART_EditableTextBox", ModelBox) is not TextBox modelInput || modelInput.Visibility == Visibility.Visible)
+            throw new InvalidOperationException("El modelo debe elegirse de la lista, sin campo de escritura.");
+        if (ModelBox.SelectedItem is not string chosenModel || chosenModel != CurrentModel)
+            throw new InvalidOperationException("La consulta no usa el modelo seleccionado.");
         loadingProvider = true;
         settings.Model = originalOpenAiModel;
         settings.GeminiModel = originalGeminiModel;
@@ -470,6 +509,25 @@ public partial class MainWindow : Window
             await flow;
             if (IsVisible || answer.ResponseText != "b. Segunda respuesta" || new WindowInteropHelper(answer).Handle != overlayHandle || visionTestHandler.RequestCount != 2)
                 throw new InvalidOperationException("La segunda consulta no reemplazó la respuesta en el mismo panel.");
+            MaxCharactersBox.Text = "1";
+            visionTestHandler.Reset();
+            flow = CaptureAsync(true);
+            await visionTestHandler.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            await CaptureAsync(false);
+            visionTestHandler.Complete("c. A.5.7");
+            await flow;
+            if (IsVisible || answer.ResponseText != "c" || visionTestHandler.RequestCount != 3)
+                throw new InvalidOperationException("El modo recortado no respetó el límite o duplicó la consulta.");
+            visionTestHandler.Reset();
+            flow = CaptureAsync();
+            await visionTestHandler.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            visionTestHandler.Complete("c. A.5.7");
+            await flow;
+            if (answer.ResponseText != "c. A.5.7" || visionTestHandler.RequestCount != 4)
+                throw new InvalidOperationException("El límite recortó también el modo completo.");
+            if (visionTestHandler.Prompts.Distinct().Count() != 1)
+                throw new InvalidOperationException("El modo recortado alteró el prompt del modelo.");
+            MaxCharactersBox.Text = "10";
         }
         var screen = SelectedScreen();
         Hide();
@@ -499,6 +557,21 @@ public partial class MainWindow : Window
             secondKey.Dispose();
             if (!firstKey.TryReplace(7, replacement, out _)) throw new InvalidOperationException("No se pudo cambiar a un atajo libre.");
             if (!secondKey.TryReplace(7, chosen, out _)) throw new InvalidOperationException("El atajo anterior no fue liberado.");
+            using var pair = new CaptureHotkeys(firstWindow.Handle);
+            int full = 0, shortened = 0;
+            for (int candidate = 0x7C; candidate < 0x87 && full == 0; candidate++)
+                for (int other = candidate + 1; other <= 0x87; other++)
+                    if (pair.TryReplace(7, candidate, 7, other, out _)) { full = candidate; shortened = other; break; }
+            if (full == 0 || pair.Full!.Id == pair.Short!.Id) throw new InvalidOperationException("No se registraron dos atajos con identificadores distintos en una ventana.");
+            if (!pair.TryReplace(7, shortened, 7, full, out _)) throw new InvalidOperationException("No se pueden intercambiar los dos atajos.");
+            var oldFull = pair.Full; var oldShort = pair.Short;
+            if (pair.TryReplace(7, full, 7, full, out _)) throw new InvalidOperationException("Se aceptaron dos combinaciones iguales.");
+            using var externalKey = new GlobalHotkey(secondWindow.Handle, 0x4500);
+            int occupied = 0;
+            for (int candidate = 0x7C; candidate <= 0x87; candidate++)
+                if (externalKey.TryReplace(7, candidate, out _)) { occupied = candidate; break; }
+            if (occupied == 0 || pair.TryReplace(7, shortened, 7, occupied, out _) || pair.Full != oldFull || pair.Short != oldShort || !oldFull!.Registered || !oldShort!.Registered)
+                throw new InvalidOperationException("Un conflicto sustituyó alguno de los dos atajos activos.");
         }
         settings.Corner = "right";
         answer.Present("Prueba local de interfaz.\n\n2x + 4 = 10\n2x = 6\nx = 3\n\nComprobación: 2(3) + 4 = 10.", "Prueba sin API", "No se envió ninguna imagen", settings, screen);
