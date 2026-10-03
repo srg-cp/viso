@@ -156,6 +156,8 @@ internal static class SelfTest
             Check(persisted.ShortHotkeyModifiers == 7 && persisted.ShortHotkeyVirtualKey == 0x52 && persisted.MaxResponseCharacters == 6, "Segundo atajo y longitud se restauran");
             var legacy = JsonSerializer.Deserialize<Settings>("{\"HotkeyModifiers\":3,\"HotkeyVirtualKey\":81}")!;
             Check(legacy.HotkeyVirtualKey == 81 && legacy.ShortHotkeyVirtualKey == 0x44 && legacy.MaxResponseCharacters == 10, "Configuración anterior conserva el atajo y recibe nuevos valores predeterminados");
+            Check(legacy.Appearance == "light", "Configuración anterior conserva la apariencia clara");
+            Check(JsonSerializer.Deserialize<Settings>(JsonSerializer.Serialize(new Settings { Appearance = "dark" }))!.Appearance == "dark", "Apariencia oscura se conserva");
             Check(ResponseDisplay.Limit("c. A.5.7", 1) == "c" && ResponseDisplay.Limit("c. A.5.7", 5) == "c. A." && ResponseDisplay.Limit("c. A.5.7", 100) == "c. A.5.7", "Recorte respeta el máximo sin puntos adicionales");
             Check(ResponseDisplay.Limit("áéñ", 2) == "áé" && ResponseDisplay.Limit("e\u0301🙂z", 2) == "e\u0301🙂" && ResponseDisplay.Limit("", 1) == "", "Recorte preserva acentos y emojis");
             try { ResponseDisplay.Limit("texto", 0); throw new Exception("Se aceptó límite cero."); } catch (ArgumentOutOfRangeException) { }

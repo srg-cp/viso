@@ -1,9 +1,8 @@
 using System;
-using System.ComponentModel;
-using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Media.Animation;
 using Forms = System.Windows.Forms;
 
 namespace CapturaTutor;
@@ -34,6 +33,7 @@ public partial class AnswerWindow : Window
         ApplySettings(settings, screen);
         Show();
         Position(settings.Corner, screen);
+        if (SystemParameters.ClientAreaAnimation) BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(120)));
     }
     public void Position(string corner, Forms.Screen screen)
     {

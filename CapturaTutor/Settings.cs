@@ -12,6 +12,7 @@ public sealed class Settings
     public string Provider { get; set; } = "OpenAI";
     public string GeminiModel { get; set; } = "gemini-3.5-flash-lite";
     public string Corner { get; set; } = "right";
+    public string Appearance { get; set; } = "light";
     public string ScreenDevice { get; set; } = "";
     public bool Region { get; set; }
     public CaptureArea? SavedArea { get; set; }
@@ -39,6 +40,7 @@ public sealed class Settings
         {
             var settings = JsonSerializer.Deserialize<Settings>(File.ReadAllText(FilePath)) ?? new Settings();
             settings.FontSize = Math.Clamp(settings.FontSize, 12, 24);
+            settings.Appearance = settings.Appearance == "dark" ? "dark" : "light";
             settings.MaxResponseCharacters = Math.Clamp(settings.MaxResponseCharacters, 1, 10000);
             settings.Provider = settings.Provider == "Gemini" ? "Gemini" : "OpenAI";
             settings.Task = settings.Task == TaskPrompts.Complete || settings.Task == "Completar el enunciado" ? TaskPrompts.Complete : TaskPrompts.Alternative;

@@ -16,7 +16,7 @@ public sealed class RegionWindow : Window
     [DllImport("user32.dll")] private static extern bool GetCursorPos(out NativePoint point);
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
     private readonly Canvas canvas = new();
-    private readonly Rectangle selection = new() { Stroke = Brushes.Turquoise, StrokeThickness = 2, Fill = new SolidColorBrush(Color.FromArgb(45, 50, 230, 200)) };
+    private readonly Rectangle selection = new() { Stroke = new SolidColorBrush(Color.FromRgb(0, 122, 255)), StrokeThickness = 2, Fill = new SolidColorBrush(Color.FromArgb(25, 0, 122, 255)), RadiusX = 4, RadiusY = 4 };
     private readonly Drawing.Rectangle bounds;
     private Point start;
     private NativePoint nativeStart;
@@ -34,8 +34,13 @@ public sealed class RegionWindow : Window
         Background = new ImageBrush(capture.Preview) { Stretch = Stretch.Fill };
         canvas.Background = new SolidColorBrush(Color.FromArgb(75, 0, 0, 0));
         Content = canvas;
-        var hint = new Border { Background = new SolidColorBrush(Color.FromRgb(16, 23, 34)), CornerRadius = new CornerRadius(8), Padding = new Thickness(16), IsHitTestVisible = false,
-            Child = new TextBlock { Text = "Arrastra para elegir un área · Esc para cancelar", Foreground = Brushes.White, FontSize = 17 } };
+        var hint = new Border { Background = new SolidColorBrush(Color.FromRgb(250, 250, 252)), BorderBrush = new SolidColorBrush(Color.FromRgb(218, 218, 224)), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(14), Padding = new Thickness(20, 14, 20, 14), IsHitTestVisible = false,
+            Effect = new System.Windows.Media.Effects.DropShadowEffect { Color = Colors.Black, BlurRadius = 18, ShadowDepth = 3, Opacity = 0.16 },
+            Child = new TextBlock { Text = "Arrastra para elegir un área · Esc para cancelar", Foreground = new SolidColorBrush(Color.FromRgb(29, 29, 31)), FontFamily = new FontFamily("SF Pro Text, Helvetica Neue, Segoe UI"), FontSize = 14 } };
+        hint.SetResourceReference(Border.BackgroundProperty, "PopupBrush");
+        hint.SetResourceReference(Border.BorderBrushProperty, "BorderBrush");
+        ((TextBlock)hint.Child).SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
+        selection.SetResourceReference(Shape.StrokeProperty, "AccentBrush");
         Canvas.SetLeft(hint, 24); Canvas.SetTop(hint, 24);
         canvas.Children.Add(hint);
         canvas.Children.Add(selection);

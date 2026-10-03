@@ -11,6 +11,8 @@ using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Input;
 using System.Windows.Navigation;
+using System.Windows.Controls.Primitives;
+using System.Windows.Threading;
 using Forms = System.Windows.Forms;
 
 namespace CapturaTutor;
@@ -23,6 +25,9 @@ public partial class MainWindow : Window
     private readonly OverlayFlowTestHandler? visionTestHandler;
     private readonly AnswerWindow answer = new();
     private readonly Forms.NotifyIcon tray;
+    private readonly ContextMenu trayMenu;
+    private readonly ToolTip trayHint;
+    private readonly DispatcherTimer trayHintTimer;
     private Capture? capture;
     private CancellationTokenSource? requestCancellation;
     private bool busy;
@@ -48,8 +53,12 @@ public partial class MainWindow : Window
         visionTestHandler = testHandler as OverlayFlowTestHandler;
         vision = new VisionClient(testHandler);
         InitializeComponent();
+        PrepareTransitions();
         string warning = "";
         settings = persistSettings ? Settings.Load(out warning) : new Settings();
+        DarkModeSwitch.IsChecked = settings.Appearance == "dark";
+        Appearance.Apply(settings.Appearance);
+        AppearanceIcon.Text = Appearance.IsDark ? "☾" : "☀";
         foreach (var screen in Forms.Screen.AllScreens)
             MonitorBox.Items.Add(new ComboBoxItem { Content = $"Monitor {MonitorBox.Items.Count + 1} · {screen.Bounds.Width} × {screen.Bounds.Height}" + (screen.Primary ? " · principal" : ""), Tag = screen.DeviceName });
         MonitorBox.SelectedIndex = Math.Max(0, Forms.Screen.AllScreens.ToList().FindIndex(s => s.DeviceName == settings.ScreenDevice));
@@ -80,23 +89,42 @@ public partial class MainWindow : Window
         { warning = "Vuelve a introducir tu API key de Gemini."; }
         ModelSummary.Text = activeProvider + " · " + CurrentModel;
         StatusText.Text = !string.IsNullOrEmpty(warning) ? warning : string.IsNullOrEmpty(CurrentKey) ? "Añade tu API key." : "Listo.";
-        tray = new Forms.NotifyIcon { Icon = System.Drawing.SystemIcons.Application, Text = "CapturaTutor", Visible = true };
-        var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("Abrir CapturaTutor", null, (_, _) => Dispatcher.Invoke(ShowMain));
-        menu.Items.Add("Capturar · respuesta completa", null, (_, _) => Dispatcher.InvokeAsync(async () => await CaptureAsync()));
-        menu.Items.Add("Capturar · respuesta recortada", null, (_, _) => Dispatcher.InvokeAsync(async () => await CaptureAsync(true)));
-        menu.Items.Add("Ver respuesta", null, (_, _) => Dispatcher.Invoke(ShowAnswer));
-        menu.Items.Add("Ocultar respuesta", null, (_, _) => Dispatcher.Invoke(answer.Hide));
-        menu.Items.Add("Copiar respuesta", null, (_, _) => Dispatcher.Invoke(() =>
+        tray = new Forms.NotifyIcon { Icon = TrayArtwork.Create(), Text = "", Visible = true };
+        trayMenu = new ContextMenu { Placement = PlacementMode.MousePoint };
+        void AddMenuItem(string label, Action action)
+        {
+            var item = new MenuItem { Header = label };
+            item.Click += (_, _) => { trayMenu.IsOpen = false; action(); }; trayMenu.Items.Add(item);
+        }
+        AddMenuItem("Abrir CapturaTutor", ShowMain);
+        trayMenu.Items.Add(new Separator());
+        AddMenuItem("Capturar · completa", () => _ = CaptureAsync());
+        AddMenuItem("Capturar · recortada", () => _ = CaptureAsync(true));
+        AddMenuItem("Ver respuesta", ShowAnswer);
+        AddMenuItem("Ocultar respuesta", answer.Hide);
+        AddMenuItem("Copiar respuesta", () =>
         {
             if (!string.IsNullOrWhiteSpace(answer.ResponseText))
                 try { Clipboard.SetText(answer.ResponseText); }
                 catch (ExternalException) { StatusText.Text = "No se pudo copiar. Inténtalo de nuevo."; }
-        }));
-        menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("Salir", null, (_, _) => Dispatcher.Invoke(Close));
-        tray.ContextMenuStrip = menu;
-        tray.DoubleClick += (_, _) => Dispatcher.Invoke(ShowMain);
+        });
+        AddMenuItem("Cancelar consulta", () => requestCancellation?.Cancel());
+        trayMenu.Items.Add(new Separator());
+        AddMenuItem("Salir", Close);
+        trayHint = new ToolTip { Content = "CapturaTutor", Placement = PlacementMode.MousePoint, StaysOpen = true };
+        trayHintTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1200) };
+        trayHintTimer.Tick += (_, _) => { trayHint.IsOpen = false; trayHintTimer.Stop(); };
+        tray.MouseMove += (_, _) => Dispatcher.Invoke(() =>
+        {
+            if (trayMenu.IsOpen || exiting) return;
+            trayHint.IsOpen = true; trayHintTimer.Stop(); trayHintTimer.Start();
+        });
+        tray.MouseUp += (_, e) => Dispatcher.Invoke(() =>
+        {
+            trayHint.IsOpen = false; trayHintTimer.Stop();
+            if (e.Button == Forms.MouseButtons.Right) trayMenu.IsOpen = true;
+        });
+        tray.DoubleClick += (_, _) => Dispatcher.Invoke(() => { trayHint.IsOpen = false; ShowMain(); });
         SourceInitialized += (_, _) =>
         {
             handle = new WindowInteropHelper(this).Handle;
@@ -112,7 +140,9 @@ public partial class MainWindow : Window
             exiting = true;
             requestCancellation?.Cancel();
             hotkeys?.Dispose();
+            trayMenu.IsOpen = false; trayHint.IsOpen = false; trayHintTimer.Stop();
             tray.Visible = false;
+            tray.Icon?.Dispose();
             tray.Dispose();
             vision.Dispose();
             Application.Current.Shutdown();
@@ -123,7 +153,7 @@ public partial class MainWindow : Window
         UpdateCaptureOptions();
         Loaded += (_, _) =>
         {
-            AnimateEntrance(ShellContent, 0);
+            AnimateWindowOpen();
             var screen = Forms.Screen.FromHandle(handle);
             var scale = System.Windows.Media.VisualTreeHelper.GetDpi(this);
             double availableHeight = screen.WorkingArea.Height / scale.DpiScaleY;
@@ -157,6 +187,7 @@ public partial class MainWindow : Window
     }
     private void ReadSettings(bool persist)
     {
+        settings.Appearance = DarkModeSwitch.IsChecked == true ? "dark" : "light";
         if (!int.TryParse(MaxCharactersBox.Text, out int maxCharacters) || maxCharacters < 1 || maxCharacters > 10000)
             throw new ArgumentException("El límite debe estar entre 1 y 10.000 caracteres.");
         settings.MaxResponseCharacters = maxCharacters;
@@ -209,10 +240,17 @@ public partial class MainWindow : Window
         string shortLabel = GlobalHotkey.Label(settings.ShortHotkeyModifiers, settings.ShortHotkeyVirtualKey);
         ShortHotkeyStatus.Text = hotkeys?.Short?.Registered == true ? "Activo: " + shortLabel : "Atajo ocupado. Elige otro.";
         CaptureHint.Text = "Completa: " + label + "\nRecortada: " + shortLabel;
-        string trayText = enabled ? "CapturaTutor · " + label : "CapturaTutor · atajo no disponible";
-        tray.Text = trayText.Length > 63 ? trayText[..63] : trayText;
+        trayHint.Content = "CapturaTutor\n" + CaptureHint.Text;
     }
     private void CaptureOptionChanged(object sender, SelectionChangedEventArgs e) => UpdateCaptureOptions();
+    private void AppearanceChanged(object sender, RoutedEventArgs e)
+    {
+        if (!configReady) return;
+        Appearance.Apply(DarkModeSwitch.IsChecked == true ? "dark" : "light");
+        AppearanceIcon.Text = Appearance.IsDark ? "☾" : "☀";
+        ApplyNativeAppearance();
+        StatusText.Text = "Sin guardar.";
+    }
     private void UpdateCaptureOptions()
     {
         if (!configReady) return;
@@ -237,7 +275,8 @@ public partial class MainWindow : Window
             ReadSettings(false);
             var screen = SelectedScreen();
             SetBusy(true);
-            Hide(); answer.Hide();
+            answer.Hide();
+            await HideWindowAnimatedAsync();
             await Task.Delay(300);
             var selector = new RegionWindow(ScreenCapture.Take(screen.Bounds));
             if (selector.ShowDialog() != true || selector.Selected == null) { StatusText.Text = "Selección cancelada."; return; }
@@ -293,8 +332,10 @@ public partial class MainWindow : Window
     }
     private void ShowMain()
     {
-        Show();
+        bool wasHidden = !IsVisible;
+        RestoreWindowVisuals(); Show();
         if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+        if (wasHidden) AnimateWindowOpen();
         Activate();
     }
     private async Task CaptureAsync(bool shortAnswer = false)
@@ -314,7 +355,8 @@ public partial class MainWindow : Window
                 ? (settings.SavedArea ?? throw new ArgumentException("Elige un área antes de capturar.")).Resolve(screen.DeviceName, screen.Bounds)
                 : screen.Bounds;
             SetBusy(true);
-            Hide(); answer.Hide();
+            answer.Hide();
+            await HideWindowAnimatedAsync();
             await Task.Delay(300);
             var next = ScreenCapture.Take(captureBounds);
             capture = next;
@@ -433,7 +475,7 @@ public partial class MainWindow : Window
             UpdateHotkeyDisplay(); StatusText.Text = "No se pudo guardar: " + ex.Message;
         }
     }
-    private void TrayClick(object sender, RoutedEventArgs e) => Hide();
+    private async void TrayClick(object sender, RoutedEventArgs e) => await HideWindowAnimatedAsync();
     private void OpenLink(object sender, RequestNavigateEventArgs e)
     {
         Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
@@ -446,6 +488,8 @@ public partial class MainWindow : Window
             throw new InvalidOperationException("La interfaz debe tener solo Configuración.");
         if (WindowStyle != WindowStyle.None || FindName("CloseWindowButton") == null || FindName("MinimizeWindowButton") == null || FindName("ZoomWindowButton") == null)
             throw new InvalidOperationException("La ventana debe usar sus tres controles propios.");
+        if (FindName("AppearanceBox") != null || FindName("DarkModeSwitch") is not CheckBox)
+            throw new InvalidOperationException("La apariencia debe usar un interruptor en la barra lateral.");
         if (TaskBox.Items.Count != 2) throw new InvalidOperationException("Solo deben existir dos tareas.");
         var initialFull = hotkeys?.Full; var initialShort = hotkeys?.Short;
         bool shortWasRegistered = initialShort?.Registered == true;
@@ -596,6 +640,49 @@ public partial class MainWindow : Window
         overlayEncoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(overlayRender));
         using (var overlayFile = File.Create(Path.Combine(AppContext.BaseDirectory, "smoke-overlay.png"))) overlayEncoder.Save(overlayFile);
         ShowMain();
+        var hiding = HideWindowAnimatedAsync();
+        await Task.Delay(40); ShowMain();
+        await hiding; await Task.Delay(250);
+        if (!IsVisible || Opacity < 0.99) throw new InvalidOperationException("Reabrir durante la transición dejó la ventana oculta.");
+        GeneralNav.IsChecked = true;
+        await Task.Delay(250);
+        UiSnapshot.Save(this, "smoke-light.png");
+        DarkModeSwitch.IsChecked = true;
+        ReadSettings(false);
+        await Task.Delay(100);
+        var themeBackground = (System.Windows.Media.SolidColorBrush)WindowSurface.Background;
+        var themePanel = (System.Windows.Media.SolidColorBrush)GeneralPanel.Background;
+        if (!Appearance.IsDark || settings.Appearance != "dark" || themeBackground.Color.ToString() != "#FF1E1E20" || themePanel.Color.ToString() != "#FF2C2C2E")
+            throw new InvalidOperationException("El modo oscuro no actualizó las superficies existentes.");
+        if (System.Text.Json.JsonSerializer.Deserialize<Settings>(System.Text.Json.JsonSerializer.Serialize(settings))!.Appearance != "dark")
+            throw new InvalidOperationException("La apariencia no se conserva en la configuración.");
+        UiSnapshot.Save(this, "smoke-dark.png");
+        trayMenu.IsOpen = true;
+        await Task.Delay(150);
+        trayMenu.ApplyTemplate();
+        if (!trayMenu.IsOpen || trayMenu.Template == null || tray.ContextMenuStrip != null || tray.Text.Length != 0)
+            throw new InvalidOperationException("La bandeja usa una superficie nativa sin el diseño propio.");
+        if (((System.Windows.Media.SolidColorBrush)trayMenu.Background).Color.ToString() != "#FF303032")
+            throw new InvalidOperationException("El menú de la bandeja no cambió a oscuro.");
+        UiSnapshot.Save(trayMenu, "smoke-tray.png");
+        trayMenu.IsOpen = false;
+        trayHint.IsOpen = true; await Task.Delay(100);
+        UiSnapshot.Save(trayHint, "smoke-tooltip.png"); trayHint.IsOpen = false;
+        await HideWindowAnimatedAsync();
+        trayMenu.IsOpen = true; await Task.Delay(100);
+        if (IsVisible || !trayMenu.IsOpen || trayMenu.ActualWidth < 100)
+            throw new InvalidOperationException("El menú de la bandeja no funciona con la ventana oculta.");
+        ((MenuItem)trayMenu.Items[0]).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+        await Task.Delay(250);
+        if (!IsVisible || trayMenu.IsOpen || Opacity < 0.99)
+            throw new InvalidOperationException("El menú no reabre la ventana y se cierra correctamente.");
+        using (var duplicate = Process.Start(new ProcessStartInfo(Environment.ProcessPath!, Appearance.IsDark ? "--smoke-test --dark-smoke" : "--smoke-test") { UseShellExecute = false, CreateNoWindow = true }))
+        {
+            if (duplicate == null) throw new InvalidOperationException("No se inició la prueba de segunda instancia.");
+            await duplicate.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(15));
+            if (duplicate.ExitCode != 0 || !File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "smoke-duplicate-result.txt")).StartsWith("PASS"))
+                throw new InvalidOperationException("Falló el aviso de segunda instancia.");
+        }
         GeneralNav.IsChecked = true;
         await Task.Delay(250);
         UpdateLayout();
@@ -621,7 +708,7 @@ public partial class MainWindow : Window
         double originalWidth = Width;
         Width = 680;
         await Task.Delay(150);
-        if (SidebarColumn.Width.Value != 84 || GeneralNavText.Visibility != Visibility.Collapsed)
+        if (SidebarColumn.Width.Value != 84 || GeneralNavText.Visibility != Visibility.Collapsed || DarkModeSwitch.Visibility != Visibility.Visible || !DarkModeSwitch.IsVisible || AppearanceLabel.Visibility != Visibility.Collapsed)
             throw new InvalidOperationException("La ventana compacta no adaptó la barra lateral.");
         CaptureNav.IsChecked = true;
         await Task.Delay(250);
@@ -638,8 +725,12 @@ public partial class MainWindow : Window
         await Task.Delay(150);
         if (WindowState != WindowState.Normal || SidebarColumn.Width.Value != 220) throw new InvalidOperationException("El botón verde no restaura el tamaño.");
         MinimizeWindowClick(this, new RoutedEventArgs());
-        await Task.Delay(100);
+        await Task.Delay(250);
         if (IsVisible) throw new InvalidOperationException("El botón amarillo no minimiza a la bandeja.");
         ShowMain();
+        DarkModeSwitch.IsChecked = false; ReadSettings(false);
+        await Task.Delay(100);
+        if (Appearance.IsDark || ((System.Windows.Media.SolidColorBrush)WindowSurface.Background).Color.ToString() != "#FFF7F7F9")
+            throw new InvalidOperationException("No se pudo volver al modo claro.");
     }
 }

@@ -26,6 +26,7 @@ public partial class MainWindow
         // Use native Windows resizing and shadows behind our own title bar.
         int rounded = 2;
         DwmSetWindowAttribute(handle, 33, ref rounded, sizeof(int));
+        ApplyNativeAppearance();
         SizeChanged += (_, _) => UpdateResponsiveLayout();
         UpdateResponsiveLayout();
     }
@@ -45,12 +46,26 @@ public partial class MainWindow
         Marshal.StructureToPtr(limits, lParam, false);
         return true;
     }
+    private void ApplyNativeAppearance()
+    {
+        if (handle == IntPtr.Zero) return;
+        int dark = Appearance.IsDark ? 1 : 0;
+        DwmSetWindowAttribute(handle, 20, ref dark, sizeof(int));
+    }
     private void UpdateResponsiveLayout()
     {
         bool compact = ActualWidth < 780;
         SidebarColumn.Width = new GridLength(compact ? 84 : 220);
         var visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         SidebarBrand.Visibility = SidebarFooter.Visibility = visibility;
+        AppearanceLabel.Visibility = visibility;
+        AppearanceIconColumn.Width = compact ? new GridLength(1, GridUnitType.Star) : new GridLength(26);
+        AppearanceLabelColumn.Width = compact ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
+        AppearanceSwitchColumn.Width = compact ? new GridLength(0) : GridLength.Auto;
+        Grid.SetColumn(DarkModeSwitch, compact ? 0 : 2);
+        Grid.SetRow(DarkModeSwitch, compact ? 1 : 0);
+        DarkModeSwitch.Margin = compact ? new Thickness(0, 8, 0, 0) : new Thickness(0);
+        AppearanceIcon.HorizontalAlignment = compact ? HorizontalAlignment.Center : HorizontalAlignment.Left;
         GeneralNavText.Visibility = CaptureNavText.Visibility = ModelNavText.Visibility = ResponseNavText.Visibility = visibility;
         bool maximized = WindowState == WindowState.Maximized;
         WindowSurface.CornerRadius = new CornerRadius(maximized ? 0 : 14);
@@ -72,7 +87,7 @@ public partial class MainWindow
         return false;
     }
     private void CloseWindowClick(object sender, RoutedEventArgs e) => Close();
-    private void MinimizeWindowClick(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+    private async void MinimizeWindowClick(object sender, RoutedEventArgs e) => await HideWindowAnimatedAsync();
     private void ZoomWindowClick(object sender, RoutedEventArgs e) => ToggleZoom();
     private void ToggleZoom()
     {
