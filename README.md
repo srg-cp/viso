@@ -29,6 +29,7 @@ Viso es una aplicación de escritorio para Windows. Con un atajo captura la pant
 - Captura de un monitor completo o de un área que puedes guardar.
 - Dos atajos configurables: respuesta completa y respuesta con un límite de caracteres.
 - Texto superpuesto en la esquina inferior derecha o izquierda, con tamaño ajustable.
+- Vista previa en vivo de la respuesta completa o recortada y color de texto personalizado por RGB o selector de color.
 - Ocultamiento por tiempo, clic o scroll, con un atajo independiente para ocultar la respuesta.
 - Interfaz con modo claro y oscuro, animaciones y acceso desde la bandeja.
 - OpenAI y Gemini, con una clave independiente para cada proveedor.
@@ -40,7 +41,7 @@ Descarga **Viso.exe** desde el [último Release](https://github.com/srg-cp/viso/
 
 1. Abre `Viso.exe`.
 2. En **Modelo de IA**, selecciona el proveedor y modelo, introduce tu API key y pulsa **Guardar**.
-3. En **General**, elige el tipo de enunciado.
+3. En **General**, elige el tipo de enunciado y cómo se oculta la respuesta.
 4. En **Captura y atajos**, configura el monitor, el área y tus combinaciones de teclas.
 5. Pulsa **Ocultar** y utiliza un atajo para capturar y enviar la imagen.
 
@@ -52,9 +53,9 @@ Descarga **Viso.exe** desde el [último Release](https://github.com/srg-cp/viso/
 
 Los dos atajos de captura envían la imagen en una sola acción. El límite de caracteres incluye espacios y signos y solo afecta al texto mostrado; la consulta al modelo es la misma.
 
-En **Respuesta** puedes elegir la esquina y el tamaño del texto. El interruptor de la barra lateral cambia el tema. Pulsa **Guardar** para conservar los ajustes.
+En **Apariencia** tienes la vista previa primero, seguida de la esquina, el tamaño del texto y el selector de color integrado. Haz clic o arrastra sobre el espectro, ajusta el brillo o introduce componentes RGB entre 0 y 255; el resultado cambia al instante. Activa **Predeterminado** para restaurar el blanco. El interruptor de la barra lateral cambia el tema. Pulsa **Guardar** para conservar los ajustes.
 
-En ese mismo panel elige cómo ocultar la respuesta:
+En **General** elige cómo ocultar la respuesta:
 
 | Modo | Cuándo desaparece |
 | --- | --- |
@@ -62,7 +63,7 @@ En ese mismo panel elige cómo ocultar la respuesta:
 | **Clic** | Al pulsar cualquier botón del mouse en cualquier parte de la pantalla. |
 | **Scroll** | Al mover la rueda del mouse, en vertical u horizontal. Los clics no la ocultan. |
 
-El **atajo para ocultar** funciona en los tres modos y también es configurable. El mouse conserva su función normal. Al iniciar otra captura se oculta la respuesta anterior; cada respuesta nueva reinicia el tiempo o la detección del mouse.
+El **atajo para ocultar** funciona en los tres modos y se configura junto a los dos atajos de captura en **Captura y atajos**. El mouse conserva su función normal. Al iniciar otra captura se oculta la respuesta anterior; cada respuesta nueva reinicia el tiempo o la detección del mouse.
 
 ![Configuración del ocultamiento de respuestas](docs/images/viso-response-settings.png)
 

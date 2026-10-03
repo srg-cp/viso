@@ -57,8 +57,7 @@ public partial class AnswerWindow : Window
     {
         Dismissal.Configure(settings.DismissMode, settings.DismissSeconds);
         Topmost = settings.Topmost;
-        AnswerText.FontSize = settings.FontSize;
-        AnswerText.TextAlignment = settings.Corner == "left" ? TextAlignment.Left : TextAlignment.Right;
+        ResponseTextStyle.Apply(AnswerText, settings);
         if (IsVisible) Position(settings.Corner, screen);
     }
     internal void VerifyPosition(string corner, Forms.Screen screen)

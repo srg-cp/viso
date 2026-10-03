@@ -44,6 +44,7 @@ public partial class MainWindow : Window
     private uint draftModifiers;
     private int draftVirtualKey;
     private bool configReady;
+    private bool updatingColor;
     private bool loadingProvider;
     private string activeProvider = "OpenAI";
     private string CurrentModel => ModelBox.SelectedItem as string ?? "";
@@ -58,6 +59,12 @@ public partial class MainWindow : Window
         PrepareTransitions();
         string warning = "";
         settings = persistSettings ? Settings.Load(out warning) : new Settings();
+        if (!persistSettings)
+        {
+            // Smoke tests use separate shortcuts so a running installation can keep its own.
+            settings.HotkeyModifiers = settings.ShortHotkeyModifiers = settings.HideHotkeyModifiers = 7;
+            settings.HotkeyVirtualKey = 0x7F; settings.ShortHotkeyVirtualKey = 0x80; settings.HideHotkeyVirtualKey = 0x81;
+        }
         DarkModeSwitch.IsChecked = settings.Appearance == "dark";
         Appearance.Apply(settings.Appearance);
         AppearanceIcon.Text = Appearance.IsDark ? "☾" : "☀";
@@ -87,6 +94,11 @@ public partial class MainWindow : Window
         CornerBox.SelectedIndex = settings.Corner == "left" ? 1 : 0;
         TopmostCheck.IsChecked = settings.Topmost;
         FontBox.Text = settings.FontSize.ToString();
+        var textColor = ResponseTextStyle.ColorFor(settings.TextColor);
+        RedBox.Text = textColor.R.ToString();
+        GreenBox.Text = textColor.G.ToString();
+        BlueBox.Text = textColor.B.ToString();
+        DefaultTextColorCheck.IsChecked = settings.TextColor == null;
         var task = TaskBox.Items.Cast<ComboBoxItem>().FirstOrDefault(i => ((string?)i.Tag == "complete" ? TaskPrompts.Complete : TaskPrompts.Alternative) == settings.Task);
         if (task != null) TaskBox.SelectedItem = task;
         try { KeyBox.Password = settings.ReadKey(); }
@@ -158,6 +170,29 @@ public partial class MainWindow : Window
         };
         StateChanged += (_, _) => { if (WindowState == WindowState.Minimized) Hide(); };
         configReady = true;
+        foreach (var box in new[] { CornerBox, FontBox, TaskBox })
+            box.SelectionChanged += (_, _) => UpdateResponsePreview();
+        foreach (var check in new ToggleButton[] { DefaultTextColorCheck, TopmostCheck, PreviewShortCheck, DismissTimeChoice, DismissClickChoice, DismissScrollChoice })
+        {
+            check.Checked += (_, _) => UpdateResponsePreview();
+            check.Unchecked += (_, _) => UpdateResponsePreview();
+        }
+        foreach (var box in new[] { MaxCharactersBox, DismissSecondsBox })
+            box.TextChanged += (_, _) => UpdateResponsePreview();
+        foreach (var box in new[] { RedBox, GreenBox, BlueBox })
+            box.TextChanged += (_, _) => RgbColorChanged();
+        TextColorSpectrum.SelectedColor = textColor;
+        ColorBrightness.Value = TextColorSpectrum.Brightness;
+        TextColorSpectrum.SelectedColorChanged += (_, _) => ApplyPickedColor();
+        ColorBrightness.ValueChanged += (_, _) =>
+        {
+            if (!updatingColor) TextColorSpectrum.Brightness = ColorBrightness.Value;
+        };
+        DefaultTextColorCheck.Checked += (_, _) =>
+        {
+            if (!updatingColor) SetColorControls(System.Windows.Media.Colors.White);
+        };
+        UpdateResponsePreview();
         SelectSection(0, false);
         UpdateCaptureOptions();
         Loaded += (_, _) =>
@@ -201,6 +236,9 @@ public partial class MainWindow : Window
     }
     private void ReadSettings(bool persist)
     {
+        if (!TryReadTextColor(out string? textColor))
+            throw new ArgumentException("Cada componente RGB debe ser un número entero entre 0 y 255.");
+        settings.TextColor = textColor;
         settings.Appearance = DarkModeSwitch.IsChecked == true ? "dark" : "light";
         if (!int.TryParse(MaxCharactersBox.Text, out int maxCharacters) || maxCharacters < 1 || maxCharacters > 10000)
             throw new ArgumentException("El límite debe estar entre 1 y 10.000 caracteres.");
@@ -220,12 +258,92 @@ public partial class MainWindow : Window
         settings.PreviewBeforeSend = false;
         settings.RememberKey = RememberCheck.IsChecked == true;
         settings.Topmost = TopmostCheck.IsChecked == true;
-        settings.FontSize = int.TryParse(FontBox.Text, out int size) ? Math.Clamp(size, 12, 24) : 16;
+        settings.FontSize = SelectedResponseFontSize();
         settings.Task = (TaskBox.SelectedItem as ComboBoxItem)?.Tag as string == "complete" ? TaskPrompts.Complete : TaskPrompts.Alternative;
         settings.Instructions = "";
         ModelSummary.Text = activeProvider + " · " + CurrentModel;
         if (persist && persistSettings) settings.Save(KeyBox.Password.Trim(), GeminiKeyBox.Password.Trim());
     }
+    private bool TryReadTextColor(out string? color)
+    {
+        color = null;
+        if (DefaultTextColorCheck.IsChecked == true) return true;
+        if (!byte.TryParse(RedBox.Text, out byte red) || !byte.TryParse(GreenBox.Text, out byte green) || !byte.TryParse(BlueBox.Text, out byte blue)) return false;
+        color = $"#{red:X2}{green:X2}{blue:X2}";
+        return true;
+    }
+
+    private int SelectedResponseFontSize()
+        => int.TryParse((FontBox.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? FontBox.Text, out int size) ? Math.Clamp(size, 12, 24) : 16;
+
+    private void SetColorControls(System.Windows.Media.Color color)
+    {
+        updatingColor = true;
+        try
+        {
+            RedBox.Text = color.R.ToString(); GreenBox.Text = color.G.ToString(); BlueBox.Text = color.B.ToString();
+            TextColorSpectrum.SelectedColor = color;
+            ColorBrightness.Value = TextColorSpectrum.Brightness;
+        }
+        finally { updatingColor = false; }
+        UpdateResponsePreview();
+    }
+
+    private void ApplyPickedColor()
+    {
+        if (updatingColor) return;
+        updatingColor = true;
+        try
+        {
+            DefaultTextColorCheck.IsChecked = false;
+            var color = TextColorSpectrum.SelectedColor;
+            RedBox.Text = color.R.ToString(); GreenBox.Text = color.G.ToString(); BlueBox.Text = color.B.ToString();
+        }
+        finally { updatingColor = false; }
+        UpdateResponsePreview();
+    }
+
+    private void RgbColorChanged()
+    {
+        if (updatingColor) return;
+        DefaultTextColorCheck.IsChecked = false;
+        if (TryReadTextColor(out string? color))
+        {
+            updatingColor = true;
+            try
+            {
+                TextColorSpectrum.SelectedColor = ResponseTextStyle.ColorFor(color);
+                ColorBrightness.Value = TextColorSpectrum.Brightness;
+            }
+            finally { updatingColor = false; }
+        }
+        UpdateResponsePreview();
+    }
+
+    private void UpdateResponsePreview()
+    {
+        if (!configReady) return;
+        bool validColor = TryReadTextColor(out string? color);
+        TextColorHelp.Text = validColor ? "Elige un color en el espectro o introduce valores RGB de 0 a 255." : "Introduce valores enteros de 0 a 255. La vista previa conserva el último color válido.";
+        var draft = new Settings
+        {
+            FontSize = SelectedResponseFontSize(),
+            Corner = CornerBox.SelectedIndex == 1 ? "left" : "right",
+            TextColor = color
+        };
+        var previousBrush = ResponsePreviewText.Foreground;
+        ResponseTextStyle.Apply(ResponsePreviewText, draft);
+        if (!validColor) ResponsePreviewText.Foreground = previousBrush;
+        TextColorSwatch.Background = ResponsePreviewText.Foreground;
+        ResponsePreviewText.HorizontalAlignment = draft.Corner == "left" ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+        string sample = TaskBox.SelectedIndex == 1 ? "La respuesta es: fotosíntesis." : "B. La fotosíntesis transforma la energía luminosa en energía química.";
+        bool validLimit = int.TryParse(MaxCharactersBox.Text, out int limit) && limit >= 1 && limit <= 10000;
+        ResponsePreviewText.Text = PreviewShortCheck.IsChecked == true && validLimit ? ResponseDisplay.Limit(sample, limit) : sample;
+        string dismissal = DismissClickChoice.IsChecked == true ? "Se oculta con un clic." : DismissScrollChoice.IsChecked == true ? "Se oculta con el scroll." : int.TryParse(DismissSecondsBox.Text, out int seconds) && seconds >= 1 && seconds <= 3600 ? $"Se oculta tras {seconds} s." : "Introduce un tiempo entre 1 y 3.600 segundos.";
+        ResponsePreviewSummary.Text = $"{(draft.Corner == "left" ? "Inferior izquierda" : "Inferior derecha")} · {draft.FontSize} px · {(TopmostCheck.IsChecked == true ? "Sobre otras ventanas" : "Sin prioridad sobre otras ventanas")}. {dismissal}";
+        if (PreviewShortCheck.IsChecked == true && !validLimit) ResponsePreviewSummary.Text += " Introduce un límite entre 1 y 10.000 caracteres.";
+    }
+
     private void HotkeyKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Tab) return;
@@ -669,6 +787,45 @@ public partial class MainWindow : Window
         ShowMain();
         await Task.Delay(250);
         ResponseNav.IsChecked = true;
+        if (!TextColorSpectrum.IsVisible || !TextColorControls.IsEnabled || PaneTitle.Text != "Apariencia")
+            throw new InvalidOperationException("El espectro debe estar disponible directamente en Apariencia.");
+        if (!GeneralPanel.IsAncestorOf(DismissTimeChoice) || !CaptureOptionsPanel.IsAncestorOf(HideHotkeyBox))
+            throw new InvalidOperationException("Los ajustes de comportamiento y atajos no están en sus secciones.");
+        TextColorSpectrum.SelectedColor = System.Windows.Media.Colors.Red;
+        ColorBrightness.Value = 0.5;
+        if (DefaultTextColorCheck.IsChecked == true || RedBox.Text != "128" || GreenBox.Text != "0" || BlueBox.Text != "0")
+            throw new InvalidOperationException("El selector integrado no actualiza RGB y color personalizado.");
+        TextColorSpectrum.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(this), 0, Key.Right) { RoutedEvent = Keyboard.KeyDownEvent });
+        if (GreenBox.Text == "0") throw new InvalidOperationException("El espectro no permite seleccionar con el teclado.");
+        DefaultTextColorCheck.IsChecked = false;
+        RedBox.Text = "12"; GreenBox.Text = "130"; BlueBox.Text = "240";
+        CornerBox.SelectedIndex = 1;
+        FontBox.SelectedIndex = 3;
+        if (((System.Windows.Media.SolidColorBrush)ResponsePreviewText.Foreground).Color.ToString() != "#FF0C82F0" || ResponsePreviewText.FontSize != 20 || ResponsePreviewText.HorizontalAlignment != HorizontalAlignment.Left)
+            throw new InvalidOperationException("La vista previa no refleja el color RGB, tamaño y esquina.");
+        ReadSettings(false);
+        answer.ApplySettings(settings, screen);
+        if (((System.Windows.Media.SolidColorBrush)answer.AnswerText.Foreground).Color.ToString() != "#FF0C82F0")
+            throw new InvalidOperationException("La respuesta real no usa el color personalizado.");
+        RedBox.Text = "999";
+        bool rejectedColor = false;
+        try { ReadSettings(false); } catch (ArgumentException) { rejectedColor = true; }
+        if (!rejectedColor || ((System.Windows.Media.SolidColorBrush)ResponsePreviewText.Foreground).Color.ToString() != "#FF0C82F0")
+            throw new InvalidOperationException("El RGB inválido no fue rechazado o alteró la vista previa.");
+        RedBox.Text = "12";
+        PreviewShortCheck.IsChecked = true;
+        MaxCharactersBox.Text = "3";
+        if (ResponsePreviewText.Text != ResponseDisplay.Limit(TaskBox.SelectedIndex == 1 ? "La respuesta es: fotosíntesis." : "B. La fotosíntesis transforma la energía luminosa en energía química.", 3))
+            throw new InvalidOperationException("La vista previa no respeta el recorte.");
+        PreviewShortCheck.IsChecked = false;
+        MaxCharactersBox.Text = "10";
+        DefaultTextColorCheck.IsChecked = true;
+        CornerBox.SelectedIndex = 0;
+        FontBox.SelectedIndex = 1;
+        ReadSettings(false);
+        answer.ApplySettings(settings, screen);
+        if (settings.TextColor != null || ((System.Windows.Media.SolidColorBrush)answer.AnswerText.Foreground).Color != System.Windows.Media.Colors.White)
+            throw new InvalidOperationException("No se restauró el color predeterminado.");
         DismissTimeChoice.IsChecked = true;
         if (DismissTimePanel.Visibility != Visibility.Visible) throw new InvalidOperationException("No se mostró el tiempo configurable.");
         DismissScrollChoice.IsChecked = true;
@@ -758,6 +915,10 @@ public partial class MainWindow : Window
         if (System.Text.Json.JsonSerializer.Deserialize<Settings>(System.Text.Json.JsonSerializer.Serialize(settings))!.Appearance != "dark")
             throw new InvalidOperationException("La apariencia no se conserva en la configuración.");
         UiSnapshot.Save(this, "smoke-dark.png");
+        ResponseNav.IsChecked = true;
+        await Task.Delay(250);
+        UiSnapshot.Save(this, "smoke-appearance-dark.png");
+        GeneralNav.IsChecked = true;
         trayMenu.IsOpen = true;
         await Task.Delay(150);
         trayMenu.ApplyTemplate();
@@ -818,6 +979,11 @@ public partial class MainWindow : Window
         var compactEncoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
         compactEncoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(compactRender));
         using (var compactFile = File.Create(Path.Combine(AppContext.BaseDirectory, "smoke-compact.png"))) compactEncoder.Save(compactFile);
+        ResponseNav.IsChecked = true;
+        await Task.Delay(250);
+        if (TextColorSpectrum.ActualWidth < 100 || !TextColorSpectrum.IsVisible || !RedBox.IsVisible)
+            throw new InvalidOperationException("El selector integrado no se adapta a la ventana compacta.");
+        UiSnapshot.Save(this, "smoke-appearance-compact.png");
         Width = originalWidth;
         ZoomWindowClick(this, new RoutedEventArgs());
         await Task.Delay(150);

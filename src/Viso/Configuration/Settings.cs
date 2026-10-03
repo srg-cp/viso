@@ -33,6 +33,7 @@ public sealed class Settings
     public string Instructions { get; set; } = "";
     public bool Topmost { get; set; } = true;
     public int FontSize { get; set; } = 16;
+    public string? TextColor { get; set; }
 
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Viso");
     public static string FilePath => Path.Combine(Folder, "settings.json");
@@ -53,6 +54,7 @@ public sealed class Settings
         {
             var settings = JsonSerializer.Deserialize<Settings>(File.ReadAllText(path)) ?? new Settings();
             settings.FontSize = Math.Clamp(settings.FontSize, 12, 24);
+            settings.TextColor = ResponseTextStyle.NormalizeColor(settings.TextColor);
             settings.Appearance = settings.Appearance == "dark" ? "dark" : "light";
             settings.DismissMode = ResponseDismissal.Normalize(settings.DismissMode);
             settings.DismissSeconds = Math.Clamp(settings.DismissSeconds, 1, 3600);
