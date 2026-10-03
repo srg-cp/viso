@@ -16,6 +16,7 @@ internal sealed class OverlayFlowTestHandler : HttpMessageHandler
     public TaskCompletionSource<bool> Entered { get; private set; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private TaskCompletionSource<string> result = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public void Complete(string text) => result.SetResult(text);
+    public void Fail(System.Exception exception) => result.SetException(exception);
     public void Reset()
     {
         Entered = new(TaskCreationOptions.RunContinuationsAsynchronously);

@@ -157,7 +157,7 @@
           </StackPanel>
         </ScrollViewer>
         <Border Grid.Row="2" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0" Background="{DynamicResource WindowBrush}" Padding="24,14,24,18"><StackPanel>
-          <TextBlock x:Name="StatusText" Text="Añade tu API key." Style="{StaticResource Caption}" Margin="0,0,0,12"/>
+          <TextBlock x:Name="StatusText" Text="Añade tu API key." Style="{StaticResource Caption}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="80" Margin="0,0,0,12"/>
           <WrapPanel HorizontalAlignment="Right"><Button x:Name="CancelButton" Content="Cancelar consulta" Click="CancelClick" Visibility="Collapsed" Margin="0,0,8,0"/><Button Content="Ocultar" ToolTip="Seguir usando los atajos con la ventana oculta" Click="TrayClick" Margin="0,0,8,0"/><Button x:Name="SaveButton" Content="Guardar" Click="SaveClick" Background="{DynamicResource AccentBrush}" Foreground="White"/></WrapPanel>
         </StackPanel></Border>
       </Grid>

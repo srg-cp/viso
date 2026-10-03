@@ -37,6 +37,11 @@ public partial class AnswerWindow : Window
         Position(settings.Corner, screen);
         if (SystemParameters.ClientAreaAnimation) BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(120)));
     }
+    public void ClearResponse()
+    {
+        Hide();
+        AnswerText.Text = "";
+    }
     public void Position(string corner, Forms.Screen screen)
     {
         // Screen coordinates are physical pixels. SetWindowPos avoids mixing per-monitor DPI units.

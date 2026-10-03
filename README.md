@@ -11,7 +11,7 @@
   <a href="https://github.com/srg-cp/viso/releases/latest"><img src="https://img.shields.io/github/v/release/srg-cp/viso?label=release" alt="Último Release"></a>
   <img src="https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&amp;logoColor=white" alt="Windows 10 y 11">
   <img src="https://img.shields.io/badge/.NET-8-512BD4?logo=dotnet&amp;logoColor=white" alt=".NET 8">
-  <img src="https://img.shields.io/badge/version-2.1.0-333333" alt="Versión 2.1.0">
+  <img src="https://img.shields.io/badge/version-2.0.2-333333" alt="Versión 2.0.2">
   <img src="https://img.shields.io/badge/modelos-OpenAI%20%2B%20Gemini-4285F4" alt="OpenAI y Gemini">
 </p>
 
@@ -69,6 +69,8 @@ El **atajo para ocultar** funciona en los tres modos y se configura junto a los 
 
 El menú del icono junto al reloj permite abrir la configuración, capturar, copiar u ocultar la respuesta y salir. El botón rojo cierra Viso.
 
+Los errores y las consultas canceladas se indican únicamente como texto en la parte inferior de la configuración. Cuando Viso está oculto, permanecen allí hasta que abras la ventana: no aparecen sobre la pantalla, no abren la aplicación y no generan alertas. Se conserva el aviso al intentar abrir una segunda instancia.
+
 ## Compilar
 
 Necesitas Windows 10 u 11 de 64 bits y el SDK de .NET 8. Desde la raíz del repositorio:
@@ -97,8 +99,8 @@ El workflow **Release** utiliza la misma compilación y las mismas pruebas que *
 2. Crea y sube un tag con esa versión:
 
 ```powershell
-git tag v2.1.0
-git push origin v2.1.0
+git tag v2.0.2
+git push origin v2.0.2
 ```
 
 El tag debe coincidir con la versión del proyecto. GitHub Actions crea el Release y adjunta **Viso.exe** y **Viso.exe.sha256**, que permite comprobar su integridad. También puedes ejecutar **Release** manualmente desde **Actions**, indicando un tag existente.

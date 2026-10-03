@@ -8,7 +8,6 @@ namespace Viso;
 public partial class App : Application
 {
     private Mutex? instance;
-    private bool showingError;
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -57,10 +56,8 @@ public partial class App : Application
         DispatcherUnhandledException += (_, args) =>
         {
             args.Handled = true;
-            if (showingError) return;
-            showingError = true;
-            try { AppleAlert.Present("No se pudo completar la acción", args.Exception.Message, MainWindow); }
-            finally { showingError = false; }
+            if (MainWindow is MainWindow window)
+                window.ReportError("No se pudo completar la acción: " + args.Exception.Message);
         };
         var window = smokeTest ? new MainWindow(new OverlayFlowTestHandler(), false) : new MainWindow();
         MainWindow = window;

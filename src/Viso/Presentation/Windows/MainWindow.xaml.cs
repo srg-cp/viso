@@ -419,6 +419,7 @@ public partial class MainWindow : Window
     {
         if (busy || exiting) return;
         bool showAnswer = answer.IsVisible;
+        bool failed = false;
         CaptureArea? previousArea = settings.SavedArea;
         try
         {
@@ -436,10 +437,20 @@ public partial class MainWindow : Window
             settings.Save(KeyBox.Password.Trim(), GeminiKeyBox.Password.Trim());
             StatusText.Text = "Área guardada.";
         }
-        catch (Exception ex) { settings.SavedArea = previousArea; StatusText.Text = "No se pudo guardar el área: " + ex.Message; }
+        catch (Exception ex)
+        {
+            failed = true;
+            settings.SavedArea = previousArea;
+            ReportError("No se pudo guardar el área: " + ex.Message);
+        }
         finally
         {
-            if (!exiting) { SetBusy(false); ShowMain(); if (showAnswer) answer.Show(); UpdateCaptureOptions(); }
+            if (!exiting)
+            {
+                SetBusy(false);
+                if (!failed) { ShowMain(); if (showAnswer) answer.Show(); }
+                UpdateCaptureOptions();
+            }
         }
     }
     private void PopulateModels()
@@ -491,13 +502,12 @@ public partial class MainWindow : Window
     private async Task CaptureAsync(bool shortAnswer = false)
     {
         if (busy || exiting) return;
-        bool wasVisible = IsVisible;
-        bool answerVisible = answer.IsVisible;
-        bool captured = false;
         try
         {
             // Never leave an old image ready to send after a failed recapture.
             capture = null;
+            hasResponse = false;
+            answer.ClearResponse();
             ReadSettings(true);
             int maxCharacters = settings.MaxResponseCharacters;
             var screen = SelectedScreen();
@@ -511,23 +521,18 @@ public partial class MainWindow : Window
             var next = ScreenCapture.Take(captureBounds);
             capture = next;
             StatusText.Text = $"Captura lista: {next.Bounds.Width} × {next.Bounds.Height}.";
-            captured = true;
             SetBusy(false);
             await SendAsync(shortAnswer, maxCharacters);
         }
         catch (Exception ex)
         {
-            StatusText.Text = "No se pudo capturar: " + ex.Message;
-            if (settings.Region) { SelectSection(1); }
-            ShowMain();
+            ReportError("No se pudo capturar: " + ex.Message);
         }
         finally
         {
             if (!exiting)
             {
                 SetBusy(false);
-                if (!captured && wasVisible) ShowMain();
-                if (!captured && answerVisible) answer.Show();
             }
         }
     }
@@ -536,10 +541,7 @@ public partial class MainWindow : Window
         if (busy || capture == null || exiting) return;
         if (string.IsNullOrWhiteSpace(CurrentKey))
         {
-            SelectSection(2);
-            StatusText.Text = $"Añade tu API key de {activeProvider}.";
-            ShowMain();
-            if (activeProvider == "Gemini") GeminiKeyBox.Focus(); else KeyBox.Focus();
+            ReportError($"Añade tu API key de {activeProvider}.");
             return;
         }
         try
@@ -570,17 +572,13 @@ public partial class MainWindow : Window
         {
             if (exiting) return;
             string text = requestCancellation?.IsCancellationRequested == true ? "Consulta cancelada." : "Se agotó el tiempo de espera. Inténtalo de nuevo.";
-            StatusText.Text = text;
-            answer.Present(text, CurrentModel, "Consulta detenida", settings, answerScreen ?? SelectedScreen());
-            hasResponse = true;
+            ReportError(text);
         }
         catch (Exception ex)
         {
             if (exiting) return;
             string text = ex is HttpRequestException ? "No se pudo conectar. Revisa tu conexión." : ex.Message;
-            StatusText.Text = "No se pudo obtener la respuesta.";
-            answer.Present(text, CurrentModel, "No se pudo completar la consulta", settings, answerScreen ?? SelectedScreen());
-            hasResponse = true;
+            ReportError("No se pudo obtener la respuesta: " + text);
         }
         finally
         {
@@ -589,6 +587,13 @@ public partial class MainWindow : Window
         }
     }
     private void CancelClick(object sender, RoutedEventArgs e) => requestCancellation?.Cancel();
+    internal void ReportError(string message)
+    {
+        StatusText.Text = message;
+        hasResponse = false;
+        capture = null;
+        answer.ClearResponse();
+    }
     private void ShowAnswer()
     {
         if (!hasResponse && !busy) { ShowMain(); return; }
@@ -726,6 +731,62 @@ public partial class MainWindow : Window
             if (visionTestHandler.Prompts.Distinct().Count() != 1)
                 throw new InvalidOperationException("El modo recortado alteró el prompt del modelo.");
             MaxCharactersBox.Text = "10";
+
+            void VerifySilentError(string expected)
+            {
+                if (IsVisible || answer.IsVisible || hasResponse || answer.ResponseText.Length != 0 || answer.Dismissal.TimerActive || answer.Dismissal.MouseActive || Application.Current.Windows.OfType<AppleAlert>().Any() || !StatusText.Text.Contains(expected))
+                    throw new InvalidOperationException("Un error mostró una ventana, conservó una respuesta o no quedó en el estado: " + expected);
+            }
+            foreach (var failure in new (Exception Error, string Expected)[]
+            {
+                (new HttpRequestException("Prueba de red"), "No se pudo conectar"),
+                (new InvalidOperationException("API key inválida"), "API key inválida"),
+                (new OperationCanceledException("Prueba de timeout"), "Se agotó el tiempo")
+            })
+            {
+                visionTestHandler.Reset();
+                flow = CaptureAsync();
+                await visionTestHandler.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                visionTestHandler.Fail(failure.Error);
+                await flow;
+                VerifySilentError(failure.Expected);
+            }
+            visionTestHandler.Reset();
+            flow = CaptureAsync();
+            await visionTestHandler.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            requestCancellation!.Cancel();
+            await flow;
+            VerifySilentError("Consulta cancelada");
+
+            KeyBox.Password = "";
+            await CaptureAsync();
+            VerifySilentError("Añade tu API key");
+            KeyBox.Password = "local-test-key";
+            var previousArea = settings.SavedArea;
+            settings.SavedArea = null;
+            AreaBox.SelectedIndex = 1;
+            await CaptureAsync();
+            VerifySilentError("Elige un área");
+            settings.SavedArea = previousArea;
+            AreaBox.SelectedIndex = 0;
+
+            ReportError("Prueba de error inesperado");
+            VerifySilentError("Prueba de error inesperado");
+            ShowMain();
+            if (!StatusText.Text.Contains("Prueba de error inesperado"))
+                throw new InvalidOperationException("Abrir la aplicación perdió el texto del error.");
+            ReportError("Prueba de error con la aplicación abierta");
+            if (!IsVisible || StatusText.Text != "Prueba de error con la aplicación abierta" || Application.Current.Windows.OfType<AppleAlert>().Any())
+                throw new InvalidOperationException("El error visible no quedó solo en el texto inferior.");
+            Hide();
+
+            visionTestHandler.Reset();
+            flow = CaptureAsync();
+            await visionTestHandler.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            visionTestHandler.Complete("Respuesta después del error");
+            await flow;
+            if (IsVisible || !answer.IsVisible || answer.ResponseText != "Respuesta después del error")
+                throw new InvalidOperationException("No se pudo volver a consultar después de un error silencioso.");
         }
         var screen = SelectedScreen();
         Hide();
