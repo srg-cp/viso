@@ -30,4 +30,19 @@ public static class ScreenCapture
         image.Freeze();
         return image;
     }
+    public static Capture LoadImage(string path)
+    {
+        if (new FileInfo(path).Length > 20 * 1024 * 1024) throw new ArgumentException("La imagen supera 20 MB. Selecciona solo el ejercicio.");
+        using var source = File.OpenRead(path);
+        var frame = BitmapFrame.Create(source, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+        if (frame.PixelWidth < 8 || frame.PixelHeight < 8 || (long)frame.PixelWidth * frame.PixelHeight > 40_000_000)
+            throw new ArgumentException("Usa una imagen de al menos 8 × 8 píxeles y hasta 40 megapíxeles.");
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(frame);
+        using var buffer = new MemoryStream();
+        encoder.Save(buffer);
+        byte[] png = buffer.ToArray();
+        if (png.Length > 20 * 1024 * 1024) throw new ArgumentException("La imagen convertida supera 20 MB. Usa un recorte más pequeño.");
+        return new Capture(png, ToPreview(png), new Rectangle(0, 0, frame.PixelWidth, frame.PixelHeight));
+    }
 }
