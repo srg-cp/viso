@@ -1,0 +1,102 @@
+<Window x:Class="Viso.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework" Style="{StaticResource {x:Type Window}}" Icon="/Viso;component/Resources/Branding/viso.png" Title="Viso · Configuración" Width="1040" Height="750" MinWidth="600" MinHeight="500" WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResize" Background="{DynamicResource WindowBrush}">
+  <shell:WindowChrome.WindowChrome><shell:WindowChrome CaptionHeight="0" ResizeBorderThickness="6" CornerRadius="14" GlassFrameThickness="1" UseAeroCaptionButtons="False"/></shell:WindowChrome.WindowChrome>
+  <Window.Resources>
+    <Style x:Key="TrafficLight" TargetType="Button"><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+      <Setter Property="Width" Value="13"/><Setter Property="Height" Value="13"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,0,8,0"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Focusable" Value="False"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Grid><Ellipse Fill="{TemplateBinding Background}" Stroke="#22000000" StrokeThickness="1"/><ContentPresenter x:Name="Symbol" Opacity="0" HorizontalAlignment="Center" VerticalAlignment="Center"/><Grid.RenderTransform><ScaleTransform/></Grid.RenderTransform></Grid><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Symbol" Property="Opacity" Value="0.7"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style x:Key="NavigationItem" TargetType="RadioButton"><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+      <Setter Property="Margin" Value="0,3"/><Setter Property="Padding" Value="10,10"/><Setter Property="Foreground" Value="{DynamicResource TextBrush}"/><Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RadioButton"><Border x:Name="SelectionSurface" CornerRadius="8" Background="Transparent" Padding="{TemplateBinding Padding}"><ContentPresenter/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="SelectionSurface" Property="Background" Value="{DynamicResource NavHoverBrush}"/></Trigger><Trigger Property="IsChecked" Value="True"><Setter TargetName="SelectionSurface" Property="Background" Value="{DynamicResource AccentBrush}"/><Setter Property="Foreground" Value="White"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+    </Style>
+  </Window.Resources>
+  <Border x:Name="WindowSurface" CornerRadius="14" BorderBrush="{DynamicResource FrameBorderBrush}" BorderThickness="1" Background="{DynamicResource WindowBrush}">
+    <Grid x:Name="ShellContent"><Grid.ColumnDefinitions><ColumnDefinition x:Name="SidebarColumn" Width="220"/><ColumnDefinition/></Grid.ColumnDefinitions>
+      <Border Background="{DynamicResource SidebarBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,1,0" CornerRadius="14,0,0,14">
+        <Grid><Grid.RowDefinitions><RowDefinition Height="60"/><RowDefinition Height="Auto"/><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+          <Grid MouseLeftButtonDown="TitleBarMouseDown" Background="Transparent">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0,0,0">
+              <Button x:Name="CloseWindowButton" Style="{StaticResource TrafficLight}" Background="#FF5F57" Click="CloseWindowClick" ToolTip="Cerrar Viso" AutomationProperties.Name="Cerrar"><TextBlock Text="×" FontSize="12" Foreground="#6A1310"/></Button>
+              <Button x:Name="MinimizeWindowButton" Style="{StaticResource TrafficLight}" Background="#FEBC2E" Click="MinimizeWindowClick" ToolTip="Minimizar a la bandeja" AutomationProperties.Name="Minimizar"><TextBlock Text="−" FontSize="12" Foreground="#775108"/></Button>
+              <Button x:Name="ZoomWindowButton" Style="{StaticResource TrafficLight}" Background="#28C840" Click="ZoomWindowClick" ToolTip="Maximizar o restaurar" AutomationProperties.Name="Maximizar o restaurar"><TextBlock Text="+" FontSize="11" Foreground="#0D641D"/></Button>
+            </StackPanel>
+          </Grid>
+          <StackPanel Grid.Row="1" Margin="14,8,14,0">
+            <StackPanel x:Name="SidebarBrand" Margin="8,0,0,22"><StackPanel Orientation="Horizontal"><Image Source="/Viso;component/Resources/Branding/viso.png" Width="32" Height="32" Margin="0,0,10,0" RenderOptions.BitmapScalingMode="HighQuality"/><TextBlock Text="Viso" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center"/></StackPanel><TextBlock Text="Configuración" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,8,0,0"/></StackPanel>
+            <RadioButton x:Name="GeneralNav" Style="{StaticResource NavigationItem}" Tag="0" GroupName="Settings" IsChecked="True" Checked="NavigationChecked" ToolTip="General" AutomationProperties.Name="General"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE713;" FontFamily="Segoe Fluent Icons" FontSize="17" Width="26"/><TextBlock x:Name="GeneralNavText" Text="General"/></StackPanel></RadioButton>
+            <RadioButton x:Name="CaptureNav" Style="{StaticResource NavigationItem}" Tag="1" GroupName="Settings" Checked="NavigationChecked" ToolTip="Captura y atajos" AutomationProperties.Name="Captura y atajos"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE722;" FontFamily="Segoe Fluent Icons" FontSize="17" Width="26"/><TextBlock x:Name="CaptureNavText" Text="Captura y atajos"/></StackPanel></RadioButton>
+            <RadioButton x:Name="ModelNav" Style="{StaticResource NavigationItem}" Tag="2" GroupName="Settings" Checked="NavigationChecked" ToolTip="Modelo de IA" AutomationProperties.Name="Modelo de IA"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE950;" FontFamily="Segoe Fluent Icons" FontSize="17" Width="26"/><TextBlock x:Name="ModelNavText" Text="Modelo de IA"/></StackPanel></RadioButton>
+            <RadioButton x:Name="ResponseNav" Style="{StaticResource NavigationItem}" Tag="3" GroupName="Settings" Checked="NavigationChecked" ToolTip="Respuesta" AutomationProperties.Name="Respuesta"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8F2;" FontFamily="Segoe Fluent Icons" FontSize="17" Width="26"/><TextBlock x:Name="ResponseNavText" Text="Respuesta"/></StackPanel></RadioButton>
+          </StackPanel>
+          <StackPanel Grid.Row="3" Margin="16,0,16,22">
+            <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0" Padding="0,14,0,0" Margin="0,0,0,18">
+              <Grid x:Name="AppearanceControl"><Grid.ColumnDefinitions><ColumnDefinition x:Name="AppearanceIconColumn" Width="26"/><ColumnDefinition x:Name="AppearanceLabelColumn"/><ColumnDefinition x:Name="AppearanceSwitchColumn" Width="Auto"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <TextBlock x:Name="AppearanceIcon" Text="☀" FontFamily="Segoe UI Symbol" FontSize="21" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"/>
+                <TextBlock x:Name="AppearanceLabel" Grid.Column="1" Text="Modo oscuro" FontSize="12" VerticalAlignment="Center"/>
+                <CheckBox x:Name="DarkModeSwitch" Grid.Column="2" Margin="0" HorizontalAlignment="Center" VerticalAlignment="Center" Checked="AppearanceChanged" Unchecked="AppearanceChanged" ToolTip="Modo oscuro" AutomationProperties.Name="Modo oscuro"/>
+              </Grid>
+            </Border>
+            <StackPanel x:Name="SidebarFooter" Margin="6,0"><TextBlock Text="ATAJOS" FontSize="10" Foreground="{DynamicResource MutedBrush}" FontWeight="SemiBold"/><TextBlock x:Name="CaptureHint" Style="{StaticResource Caption}" Margin="0,8,0,0"/></StackPanel>
+          </StackPanel>
+        </Grid>
+      </Border>
+      <Grid Grid.Column="1"><Grid.RowDefinitions><RowDefinition Height="60"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1" Background="{DynamicResource ChromeBrush}" MouseLeftButtonDown="TitleBarMouseDown"><Grid Margin="28,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock x:Name="PaneTitle" Text="General" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/><TextBlock x:Name="ModelSummary" Grid.Column="1" Foreground="{DynamicResource MutedBrush}" FontSize="11" VerticalAlignment="Center" MaxWidth="210" Margin="12,0,0,0"/></Grid></Border>
+        <ScrollViewer x:Name="ConfigScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="28,26,24,20">
+          <StackPanel x:Name="ConfigContent" MaxWidth="760" HorizontalAlignment="Stretch"><StackPanel.RenderTransform><TranslateTransform/></StackPanel.RenderTransform>
+        <Border x:Name="GeneralPanel" Style="{StaticResource SettingsCard}"><StackPanel>
+          <TextBlock Text="Tipo de enunciado" Style="{StaticResource SectionTitle}"/>
+          
+          <ComboBox x:Name="TaskBox" SelectedIndex="0" Margin="0,14,0,0"><ComboBoxItem Content="Elegir una alternativa" Tag="alternative"/><ComboBoxItem Content="Completar el enunciado" Tag="complete"/></ComboBox>
+        </StackPanel></Border>
+        <Border x:Name="CaptureOptionsPanel" Visibility="Collapsed" Style="{StaticResource SettingsCard}"><StackPanel>
+          <TextBlock Text="Captura" Style="{StaticResource SectionTitle}"/>
+          <TextBlock Text="Haz clic en un atajo para cambiarlo." Style="{StaticResource Caption}" Margin="0,4,0,16"/>
+          <TextBlock Text="Respuesta completa" Style="{StaticResource FieldLabel}"/>
+          <TextBox x:Name="HotkeyBox" IsReadOnly="True" PreviewKeyDown="HotkeyKeyDown" ToolTip="Presiona la combinación que quieras usar."/>
+          <TextBlock x:Name="HotkeyStatus" Style="{StaticResource Caption}" Margin="0,7,0,16"/>
+          <Grid Margin="0,0,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="3*"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
+            <StackPanel Margin="0,0,14,0"><TextBlock Text="Respuesta recortada" Style="{StaticResource FieldLabel}"/><TextBox x:Name="ShortHotkeyBox" IsReadOnly="True" PreviewKeyDown="HotkeyKeyDown" ToolTip="Presiona otra combinación para la respuesta recortada."/></StackPanel>
+            <StackPanel Grid.Column="1"><TextBlock Text="Máximo de caracteres" Style="{StaticResource FieldLabel}"/><TextBox x:Name="MaxCharactersBox" MaxLength="5" ToolTip="Entre 1 y 10.000 caracteres."/></StackPanel>
+          </Grid>
+          <TextBlock x:Name="ShortHotkeyStatus" Style="{StaticResource Caption}" Margin="0,7,0,4"/>
+          <TextBlock Text="El límite incluye espacios y signos." Style="{StaticResource Caption}" Margin="0,0,0,18"/>
+          <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="3*"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
+            <StackPanel Margin="0,0,14,0"><TextBlock Text="Monitor" Style="{StaticResource FieldLabel}"/><ComboBox x:Name="MonitorBox" SelectionChanged="CaptureOptionChanged"/></StackPanel>
+            <StackPanel Grid.Column="1"><TextBlock Text="Capturar" Style="{StaticResource FieldLabel}"/><ComboBox x:Name="AreaBox" SelectedIndex="0" SelectionChanged="CaptureOptionChanged"><ComboBoxItem Content="Pantalla completa"/><ComboBoxItem Content="Área guardada"/></ComboBox></StackPanel>
+          </Grid>
+          <Button x:Name="SelectAreaButton" Content="Elegir área" Click="SelectAreaClick" HorizontalAlignment="Left" Margin="0,14,0,0"/>
+          <TextBlock x:Name="AreaSummary" Style="{StaticResource Caption}" Margin="0,9,0,0"/>
+        </StackPanel></Border>
+        <Border x:Name="ModelPanel" Visibility="Collapsed" Style="{StaticResource SettingsCard}"><StackPanel>
+          <TextBlock Text="Modelo" Style="{StaticResource SectionTitle}" Margin="0,0,0,16"/>
+          
+          <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="3*"/></Grid.ColumnDefinitions>
+            <StackPanel Margin="0,0,14,0"><TextBlock Text="Proveedor" Style="{StaticResource FieldLabel}"/><ComboBox x:Name="ProviderBox" SelectionChanged="ProviderChanged"><ComboBoxItem Content="OpenAI"/><ComboBoxItem Content="Gemini"/></ComboBox></StackPanel>
+            <StackPanel Grid.Column="1"><TextBlock Text="Modelo" Style="{StaticResource FieldLabel}"/><ComboBox x:Name="ModelBox" IsEditable="False"/></StackPanel>
+          </Grid>
+          <TextBlock x:Name="ModelHelp" Style="{StaticResource Caption}" Margin="0,9,0,16"/>
+          <StackPanel x:Name="OpenAiKeyPanel"><TextBlock Text="API key de OpenAI" Style="{StaticResource FieldLabel}"/><PasswordBox x:Name="KeyBox"/></StackPanel>
+          <StackPanel x:Name="GeminiKeyPanel"><TextBlock Text="API key de Gemini" Style="{StaticResource FieldLabel}"/><PasswordBox x:Name="GeminiKeyBox"/></StackPanel>
+          <CheckBox x:Name="RememberCheck" Content="Recordar claves"/>
+          <TextBlock Margin="0,4,0,0" FontSize="12"><Hyperlink NavigateUri="https://platform.openai.com/api-keys" RequestNavigate="OpenLink">Obtener clave de OpenAI</Hyperlink><Run Text="     "/><Hyperlink NavigateUri="https://aistudio.google.com/apikey" RequestNavigate="OpenLink">Obtener clave de Gemini</Hyperlink><Run Text="     "/><Hyperlink NavigateUri="https://ai.google.dev/gemini-api/docs/pricing" RequestNavigate="OpenLink">Precios</Hyperlink></TextBlock>
+        </StackPanel></Border>
+        <Border x:Name="ResponsePanel" Visibility="Collapsed" Style="{StaticResource SettingsCard}"><StackPanel>
+          <TextBlock Text="Respuesta" Style="{StaticResource SectionTitle}" Margin="0,0,0,16"/>
+          
+          <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="3*"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
+            <StackPanel Margin="0,0,14,0"><TextBlock Text="Ubicación" Style="{StaticResource FieldLabel}"/><ComboBox x:Name="CornerBox" SelectedIndex="0"><ComboBoxItem Content="Inferior derecha"/><ComboBoxItem Content="Inferior izquierda"/></ComboBox></StackPanel>
+            <StackPanel Grid.Column="1"><TextBlock Text="Tamaño del texto" Style="{StaticResource FieldLabel}"/><ComboBox x:Name="FontBox" SelectedIndex="1"><ComboBoxItem Content="14"/><ComboBoxItem Content="16"/><ComboBoxItem Content="18"/><ComboBoxItem Content="20"/></ComboBox></StackPanel>
+          </Grid>
+          <CheckBox x:Name="TopmostCheck" Content="Siempre visible" IsChecked="True"/>
+        </StackPanel></Border>
+          </StackPanel>
+        </ScrollViewer>
+        <Border Grid.Row="2" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0" Background="{DynamicResource WindowBrush}" Padding="24,14,24,18"><StackPanel>
+          <TextBlock x:Name="StatusText" Text="Añade tu API key." Style="{StaticResource Caption}" Margin="0,0,0,12"/>
+          <WrapPanel HorizontalAlignment="Right"><Button x:Name="CancelButton" Content="Cancelar consulta" Click="CancelClick" Visibility="Collapsed" Margin="0,0,8,0"/><Button Content="Ocultar" ToolTip="Seguir usando los atajos con la ventana oculta" Click="TrayClick" Margin="0,0,8,0"/><Button x:Name="SaveButton" Content="Guardar" Click="SaveClick" Background="{DynamicResource AccentBrush}" Foreground="White"/></WrapPanel>
+        </StackPanel></Border>
+      </Grid>
+    </Grid>
+  </Border>
+</Window>

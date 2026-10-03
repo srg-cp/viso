@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <NoWarn>$(NoWarn);WFAC010</NoWarn>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName>Viso</AssemblyName>
+    <RootNamespace>Viso</RootNamespace>
+    <Product>Viso</Product>
+    <Description>Captura de ejercicios y respuestas con modelos de visión.</Description>
+    <ApplicationIcon>../../assets/branding/viso.ico</ApplicationIcon>
+    <Version>2.0.0</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="../../assets/branding/viso.png" Link="Resources/Branding/viso.png" />
+    <Resource Include="../../assets/branding/viso.ico" Link="Resources/Branding/viso.ico" />
+  </ItemGroup>
+</Project>

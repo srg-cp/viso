@@ -1,4 +1,4 @@
-# CapturaTutor
+# Viso
 
 Aplicación de escritorio para Windows que captura un ejercicio, lo consulta con OpenAI o Gemini y muestra la respuesta en una esquina de la pantalla.
 
@@ -14,11 +14,11 @@ Aplicación de escritorio para Windows que captura un ejercicio, lo consulta con
 .\build.ps1 -Test
 ```
 
-El ejecutable queda en `dist/CapturaTutor.exe`. La opción `-Test` ejecuta pruebas locales con respuestas simuladas; no requiere claves ni consume API.
+El ejecutable queda en `dist/Viso.exe`. La opción `-Test` ejecuta pruebas locales con respuestas simuladas; no requiere claves ni consume API.
 
 ## Configurar
 
-1. Abre CapturaTutor y entra en **Modelo de IA**. Elige el proveedor y modelo, añade tu API key y pulsa **Guardar**.
+1. Abre Viso y entra en **Modelo de IA**. Elige el proveedor y modelo, añade tu API key y pulsa **Guardar**.
 2. En **General**, selecciona el tipo de enunciado.
 3. En **Captura y atajos**, elige el monitor y la captura completa o un área guardada.
 4. Pulsa **Ocultar** y usa uno de los atajos.
@@ -40,7 +40,7 @@ Puedes crear una clave en [OpenAI](https://platform.openai.com/api-keys) o [Goog
 
 - Las capturas se envían directamente al proveedor seleccionado por HTTPS. No hay servidor intermediario.
 - Las capturas se mantienen en memoria durante el uso normal.
-- **Recordar claves** las guarda cifradas con Windows DPAPI en `%LOCALAPPDATA%\CapturaTutor\settings.json`. Al desactivar la opción y guardar, se eliminan las claves persistentes.
+- **Recordar claves** las guarda cifradas con Windows DPAPI en `%LOCALAPPDATA%\Viso\settings.json`. Al desactivar la opción y guardar, se eliminan las claves persistentes.
 - OpenAI recibe las solicitudes con `store: false`. Consulta las condiciones de cada proveedor para conocer su retención y uso de datos.
 - Cada consulta puede tener costo. El programa evita envíos simultáneos y no hace reintentos automáticos. Cancelar la espera no anula una solicitud que el proveedor ya haya recibido.
 - Las respuestas pueden contener errores. El programa no garantiza que una solución sea correcta.
@@ -50,7 +50,7 @@ Puedes crear una clave en [OpenAI](https://platform.openai.com/api-keys) o [Goog
 En una sesión interactiva de Windows:
 
 ```powershell
-$p = Start-Process .\dist\CapturaTutor.exe -ArgumentList '--smoke-test' -Wait -PassThru
+$p = Start-Process .\dist\Viso.exe -ArgumentList '--smoke-test' -Wait -PassThru
 Get-Content .\dist\smoke-test-result.txt
 $p.ExitCode
 ```
@@ -60,7 +60,7 @@ Estas pruebas comprueban los controles, los temas, los atajos, la captura de un 
 Para evaluar una imagen con Gemini:
 
 ```powershell
-.\dist\CapturaTutor.exe --evaluate-image ejercicio.png --expected c --runs 1
+.\dist\Viso.exe --evaluate-image ejercicio.png --expected c --runs 1
 ```
 
 Este comando usa la clave de Gemini guardada y realiza una consulta real, que puede tener costo. Admite `--crop x,y,ancho,alto` y hasta tres ejecuciones. Guarda `evaluation-result.json`; la respuesta esperada se usa para comprobar el resultado y no se envía al modelo.

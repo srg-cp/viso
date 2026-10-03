@@ -1,0 +1,90 @@
+using System;
+using System.IO;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+
+namespace Viso;
+
+public sealed class Settings
+{
+    public string Model { get; set; } = "gpt-5.4-mini";
+    public string Provider { get; set; } = "OpenAI";
+    public string GeminiModel { get; set; } = "gemini-3.5-flash-lite";
+    public string Corner { get; set; } = "right";
+    public string Appearance { get; set; } = "light";
+    public string ScreenDevice { get; set; } = "";
+    public bool Region { get; set; }
+    public CaptureArea? SavedArea { get; set; }
+    public uint HotkeyModifiers { get; set; } = 5;
+    public int HotkeyVirtualKey { get; set; } = 0x53;
+    public uint ShortHotkeyModifiers { get; set; } = 5;
+    public int ShortHotkeyVirtualKey { get; set; } = 0x44;
+    public int MaxResponseCharacters { get; set; } = 10;
+    public bool PreviewBeforeSend { get; set; } = false;
+    public bool RememberKey { get; set; }
+    public string EncryptedKey { get; set; } = "";
+    public string EncryptedGeminiKey { get; set; } = "";
+    public string Task { get; set; } = TaskPrompts.Alternative;
+    public string Instructions { get; set; } = "";
+    public bool Topmost { get; set; } = true;
+    public int FontSize { get; set; } = 16;
+
+    public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Viso");
+    public static string FilePath => Path.Combine(Folder, "settings.json");
+    public static Settings Load(out string warning)
+        => LoadFromFolders(Folder, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CapturaTutor"), out warning);
+
+    internal static Settings LoadFromFolders(string folder, string previousFolder, out string warning)
+    {
+        warning = "";
+        string path = Path.Combine(folder, "settings.json");
+        if (!File.Exists(path))
+        {
+            // Read existing installations; subsequent saves use the Viso folder.
+            path = Path.Combine(previousFolder, "settings.json");
+            if (!File.Exists(path)) return new Settings();
+        }
+        try
+        {
+            var settings = JsonSerializer.Deserialize<Settings>(File.ReadAllText(path)) ?? new Settings();
+            settings.FontSize = Math.Clamp(settings.FontSize, 12, 24);
+            settings.Appearance = settings.Appearance == "dark" ? "dark" : "light";
+            settings.MaxResponseCharacters = Math.Clamp(settings.MaxResponseCharacters, 1, 10000);
+            settings.Provider = settings.Provider == "Gemini" ? "Gemini" : "OpenAI";
+            settings.Task = settings.Task == TaskPrompts.Complete || settings.Task == "Completar el enunciado" ? TaskPrompts.Complete : TaskPrompts.Alternative;
+            if (!GlobalHotkey.IsValid(settings.HotkeyModifiers, settings.HotkeyVirtualKey))
+            {
+                settings.HotkeyModifiers = 5;
+                settings.HotkeyVirtualKey = 0x53;
+                warning = "Atajo restablecido: Alt + Mayús + S.";
+            }
+            if (!GlobalHotkey.IsValid(settings.ShortHotkeyModifiers, settings.ShortHotkeyVirtualKey) ||
+                (settings.ShortHotkeyModifiers == settings.HotkeyModifiers && settings.ShortHotkeyVirtualKey == settings.HotkeyVirtualKey))
+            {
+                settings.ShortHotkeyModifiers = 5; settings.ShortHotkeyVirtualKey = 0x44;
+                if (settings.HotkeyModifiers == 5 && settings.HotkeyVirtualKey == 0x44) settings.ShortHotkeyModifiers = 7;
+                warning = "Se restableció el atajo de respuesta recortada.";
+            }
+            return settings;
+        }
+        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
+        {
+            warning = "No se pudo cargar la configuración. Revisa tus ajustes.";
+            return new Settings();
+        }
+    }
+    public void Save(string key, string geminiKey = "")
+    {
+        EncryptedKey = RememberKey && !string.IsNullOrWhiteSpace(key) ? ProtectKey(key) : "";
+        EncryptedGeminiKey = RememberKey && !string.IsNullOrWhiteSpace(geminiKey) ? ProtectKey(geminiKey) : "";
+        Directory.CreateDirectory(Folder);
+        string temporary = FilePath + ".tmp";
+        File.WriteAllText(temporary, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+        File.Move(temporary, FilePath, true);
+    }
+    public string ReadKey() => string.IsNullOrEmpty(EncryptedKey) ? "" : UnprotectKey(EncryptedKey);
+    public string ReadGeminiKey() => string.IsNullOrEmpty(EncryptedGeminiKey) ? "" : UnprotectKey(EncryptedGeminiKey);
+    internal static string ProtectKey(string key) => Convert.ToBase64String(ProtectedData.Protect(Encoding.UTF8.GetBytes(key), null, DataProtectionScope.CurrentUser));
+    internal static string UnprotectKey(string encrypted) => Encoding.UTF8.GetString(ProtectedData.Unprotect(Convert.FromBase64String(encrypted), null, DataProtectionScope.CurrentUser));
+}
