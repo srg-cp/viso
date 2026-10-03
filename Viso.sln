@@ -7,6 +7,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{68D006ED-A27
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Viso", "src\Viso\Viso.csproj", "{1CBB440C-1730-4E00-9034-9D3342FAF35A}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{C2BBAFFA-15E0-46AC-B448-9DB7831425E6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Viso.Tests", "tests\Viso.Tests\Viso.Tests.csproj", "{8BC200C1-7D69-4354-9665-15AEFB7AC786}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,8 +24,13 @@ Global
 		{1CBB440C-1730-4E00-9034-9D3342FAF35A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1CBB440C-1730-4E00-9034-9D3342FAF35A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1CBB440C-1730-4E00-9034-9D3342FAF35A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8BC200C1-7D69-4354-9665-15AEFB7AC786}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8BC200C1-7D69-4354-9665-15AEFB7AC786}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8BC200C1-7D69-4354-9665-15AEFB7AC786}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8BC200C1-7D69-4354-9665-15AEFB7AC786}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{1CBB440C-1730-4E00-9034-9D3342FAF35A} = {68D006ED-A271-4103-9895-88ACB4F8B909}
+		{8BC200C1-7D69-4354-9665-15AEFB7AC786} = {C2BBAFFA-15E0-46AC-B448-9DB7831425E6}
 	EndGlobalSection
 EndGlobal

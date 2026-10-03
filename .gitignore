@@ -2,6 +2,8 @@
 **/obj/
 dist/
 artifacts/
+**/TestResults/
+*.trx
 .vs/
 .idea/
 *.user

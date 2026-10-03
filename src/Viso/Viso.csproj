@@ -16,6 +16,7 @@
     <Version>2.0.0</Version>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Viso.Tests" />
     <Resource Include="../../assets/branding/viso.png" Link="Resources/Branding/viso.png" />
     <Resource Include="../../assets/branding/viso.ico" Link="Resources/Branding/viso.ico" />
   </ItemGroup>

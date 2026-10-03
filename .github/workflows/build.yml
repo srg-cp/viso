@@ -5,6 +5,13 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to build and test
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -13,18 +20,32 @@ jobs:
   windows:
     name: Windows x64
     runs-on: windows-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
           persist-credentials: false
+          ref: ${{ inputs.ref || github.ref }}
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 8.0.x
-      - name: Build and test
+      - name: Unit tests
+        shell: pwsh
+        run: dotnet test tests/Viso.Tests/Viso.Tests.csproj -c Release --logger "trx;LogFileName=unit-tests.trx" --results-directory artifacts/test-results
+      - name: Publish and run executable checks
         shell: pwsh
         run: ./build.ps1 -Test
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Viso-test-results
+          path: |
+            artifacts/test-results/*.trx
+            dist/Viso/self-test-result.txt
+          if-no-files-found: warn
       - name: Upload executable
         uses: actions/upload-artifact@v7
         with:
