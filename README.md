@@ -64,6 +64,8 @@ En ese mismo panel elige cómo ocultar la respuesta:
 
 El **atajo para ocultar** funciona en los tres modos y también es configurable. El mouse conserva su función normal. Al iniciar otra captura se oculta la respuesta anterior; cada respuesta nueva reinicia el tiempo o la detección del mouse.
 
+![Configuración del ocultamiento de respuestas](docs/images/viso-response-settings.png)
+
 El menú del icono junto al reloj permite abrir la configuración, capturar, copiar u ocultar la respuesta y salir. El botón rojo cierra Viso.
 
 ## Compilar
