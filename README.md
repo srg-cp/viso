@@ -7,8 +7,8 @@
 <p align="center">Captura un ejercicio. Consulta tu modelo. Recibe la respuesta.</p>
 
 <p align="center">
-  <a href="https://github.com/srg-cp/evaluation-fresh/actions/workflows/build.yml"><img src="https://github.com/srg-cp/evaluation-fresh/actions/workflows/build.yml/badge.svg" alt="Compilación"></a>
-  <a href="https://github.com/srg-cp/evaluation-fresh/releases/latest"><img src="https://img.shields.io/github/v/release/srg-cp/evaluation-fresh?label=release" alt="Último Release"></a>
+  <a href="https://github.com/srg-cp/viso/actions/workflows/build.yml"><img src="https://github.com/srg-cp/viso/actions/workflows/build.yml/badge.svg" alt="Compilación"></a>
+  <a href="https://github.com/srg-cp/viso/releases/latest"><img src="https://img.shields.io/github/v/release/srg-cp/viso?label=release" alt="Último Release"></a>
   <img src="https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&amp;logoColor=white" alt="Windows 10 y 11">
   <img src="https://img.shields.io/badge/.NET-8-512BD4?logo=dotnet&amp;logoColor=white" alt=".NET 8">
   <img src="https://img.shields.io/badge/version-2.0.0-333333" alt="Versión 2.0.0">
@@ -35,7 +35,7 @@ Viso es una aplicación de escritorio para Windows. Con un atajo captura la pant
 
 ## Primeros pasos
 
-Descarga **Viso.exe** desde el [último Release](https://github.com/srg-cp/evaluation-fresh/releases/latest). No necesita instalación.
+Descarga **Viso.exe** desde el [último Release](https://github.com/srg-cp/viso/releases/latest). No necesita instalación.
 
 1. Abre `Viso.exe`.
 2. En **Modelo de IA**, selecciona el proveedor y modelo, introduce tu API key y pulsa **Guardar**.
