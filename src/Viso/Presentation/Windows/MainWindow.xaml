@@ -99,17 +99,24 @@
           <TextBlock Text="Atajo para ocultar" Style="{StaticResource FieldLabel}"/>
           <TextBox x:Name="HideHotkeyBox" IsReadOnly="True" PreviewKeyDown="HotkeyKeyDown" ToolTip="Funciona con cualquiera de los tres modos."/>
           <TextBlock x:Name="HideHotkeyStatus" Style="{StaticResource Caption}" Margin="0,7,0,0"/>
+          <TextBlock Text="Atajos por modelo" Style="{StaticResource SectionTitle}" Margin="0,24,0,0"/>
+          <TextBlock Text="Elige un modelo para cada combinación. Usa la clave de su proveedor y el mismo monitor o área. Pulsa Guardar para activar los cambios." Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,6,0,12"/>
+          <StackPanel x:Name="ModelShortcutsPanel"/>
+          <Button Content="Añadir atajo por modelo" Click="AddModelShortcutClick" HorizontalAlignment="Left" Margin="0,12,0,0"/>
         </StackPanel></Border>
         <Border x:Name="ModelPanel" Visibility="Collapsed" Style="{StaticResource SettingsCard}"><StackPanel>
           <TextBlock Text="Modelo" Style="{StaticResource SectionTitle}" Margin="0,0,0,16"/>
           
           <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="3*"/></Grid.ColumnDefinitions>
-            <StackPanel Margin="0,0,14,0"><TextBlock Text="Proveedor" Style="{StaticResource FieldLabel}"/><ComboBox x:Name="ProviderBox" SelectionChanged="ProviderChanged"><ComboBoxItem Content="OpenAI"/><ComboBoxItem Content="Gemini"/></ComboBox></StackPanel>
+            <StackPanel Margin="0,0,14,0"><TextBlock Text="Proveedor" Style="{StaticResource FieldLabel}"/><ComboBox x:Name="ProviderBox" SelectionChanged="ProviderChanged"><ComboBoxItem Content="OpenAI"/><ComboBoxItem Content="Gemini"/><ComboBoxItem Content="Claude"/></ComboBox></StackPanel>
             <StackPanel Grid.Column="1"><TextBlock Text="Modelo" Style="{StaticResource FieldLabel}"/><ComboBox x:Name="ModelBox" IsEditable="False"/></StackPanel>
           </Grid>
           <TextBlock x:Name="ModelHelp" Style="{StaticResource Caption}" Margin="0,9,0,16"/>
+          <TextBlock Text="Este modelo se usa con los atajos de respuesta completa y recortada. Puedes añadir otros modelos en Captura y atajos." Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,16"/>
           <StackPanel x:Name="OpenAiKeyPanel"><TextBlock Text="API key de OpenAI" Style="{StaticResource FieldLabel}"/><PasswordBox x:Name="KeyBox"/></StackPanel>
           <StackPanel x:Name="GeminiKeyPanel"><TextBlock Text="API key de Gemini" Style="{StaticResource FieldLabel}"/><PasswordBox x:Name="GeminiKeyBox"/></StackPanel>
+          <StackPanel x:Name="ClaudeKeyPanel" Visibility="Collapsed"><TextBlock Text="API key de Claude (Anthropic)" Style="{StaticResource FieldLabel}"/><PasswordBox x:Name="ClaudeKeyBox"/></StackPanel>
+          <TextBlock Margin="0,8,0,0" FontSize="12"><Hyperlink NavigateUri="https://platform.claude.com/settings/keys" RequestNavigate="OpenLink">Obtener clave de Claude</Hyperlink></TextBlock>
           <CheckBox x:Name="RememberCheck" Content="Recordar claves"/>
           <TextBlock Margin="0,4,0,0" FontSize="12"><Hyperlink NavigateUri="https://platform.openai.com/api-keys" RequestNavigate="OpenLink">Obtener clave de OpenAI</Hyperlink><Run Text="     "/><Hyperlink NavigateUri="https://aistudio.google.com/apikey" RequestNavigate="OpenLink">Obtener clave de Gemini</Hyperlink><Run Text="     "/><Hyperlink NavigateUri="https://ai.google.dev/gemini-api/docs/pricing" RequestNavigate="OpenLink">Precios</Hyperlink></TextBlock>
         </StackPanel></Border>

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -11,6 +12,8 @@ public sealed class Settings
     public string Model { get; set; } = "gpt-5.4-mini";
     public string Provider { get; set; } = "OpenAI";
     public string GeminiModel { get; set; } = "gemini-3.5-flash-lite";
+    public string ClaudeModel { get; set; } = "claude-sonnet-5-5";
+    public List<ModelShortcut> ModelShortcuts { get; set; } = new();
     public string Corner { get; set; } = "right";
     public string Appearance { get; set; } = "light";
     public string ScreenDevice { get; set; } = "";
@@ -29,6 +32,7 @@ public sealed class Settings
     public bool RememberKey { get; set; }
     public string EncryptedKey { get; set; } = "";
     public string EncryptedGeminiKey { get; set; } = "";
+    public string EncryptedClaudeKey { get; set; } = "";
     public string Task { get; set; } = TaskPrompts.Alternative;
     public string Instructions { get; set; } = "";
     public bool Topmost { get; set; } = true;
@@ -59,7 +63,7 @@ public sealed class Settings
             settings.DismissMode = ResponseDismissal.Normalize(settings.DismissMode);
             settings.DismissSeconds = Math.Clamp(settings.DismissSeconds, 1, 3600);
             settings.MaxResponseCharacters = Math.Clamp(settings.MaxResponseCharacters, 1, 10000);
-            settings.Provider = settings.Provider == "Gemini" ? "Gemini" : "OpenAI";
+            settings.Provider = settings.Provider is "Gemini" or "Claude" ? settings.Provider : "OpenAI";
             settings.Task = settings.Task == TaskPrompts.Complete || settings.Task == "Completar el enunciado" ? TaskPrompts.Complete : TaskPrompts.Alternative;
             if (!GlobalHotkey.IsValid(settings.HotkeyModifiers, settings.HotkeyVirtualKey))
             {
@@ -88,6 +92,25 @@ public sealed class Settings
                 }
                 warning = "Se restableció el atajo para ocultar la respuesta.";
             }
+            settings.ModelShortcuts ??= new();
+            var combinations = new HashSet<(uint, int)>
+            {
+                (settings.HotkeyModifiers, settings.HotkeyVirtualKey),
+                (settings.ShortHotkeyModifiers, settings.ShortHotkeyVirtualKey),
+                (settings.HideHotkeyModifiers, settings.HideHotkeyVirtualKey)
+            };
+            bool omittedShortcuts = false;
+            settings.ModelShortcuts.RemoveAll(shortcut =>
+            {
+                bool invalid = shortcut == null ||
+                    (shortcut.Provider != "OpenAI" && shortcut.Provider != "Gemini" && shortcut.Provider != "Claude") ||
+                    string.IsNullOrWhiteSpace(shortcut.Model) ||
+                    !GlobalHotkey.IsValid(shortcut.Modifiers, shortcut.VirtualKey) ||
+                    !combinations.Add((shortcut.Modifiers, shortcut.VirtualKey));
+                if (invalid) omittedShortcuts = true;
+                return invalid;
+            });
+            if (omittedShortcuts) warning = "Se omitieron atajos por modelo inválidos o duplicados.";
             return settings;
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
@@ -96,10 +119,11 @@ public sealed class Settings
             return new Settings();
         }
     }
-    public void Save(string key, string geminiKey = "")
+    public void Save(string key, string geminiKey = "", string claudeKey = "")
     {
         EncryptedKey = RememberKey && !string.IsNullOrWhiteSpace(key) ? ProtectKey(key) : "";
         EncryptedGeminiKey = RememberKey && !string.IsNullOrWhiteSpace(geminiKey) ? ProtectKey(geminiKey) : "";
+        EncryptedClaudeKey = RememberKey && !string.IsNullOrWhiteSpace(claudeKey) ? ProtectKey(claudeKey) : "";
         Directory.CreateDirectory(Folder);
         string temporary = FilePath + ".tmp";
         File.WriteAllText(temporary, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
@@ -107,6 +131,7 @@ public sealed class Settings
     }
     public string ReadKey() => string.IsNullOrEmpty(EncryptedKey) ? "" : UnprotectKey(EncryptedKey);
     public string ReadGeminiKey() => string.IsNullOrEmpty(EncryptedGeminiKey) ? "" : UnprotectKey(EncryptedGeminiKey);
+    public string ReadClaudeKey() => string.IsNullOrEmpty(EncryptedClaudeKey) ? "" : UnprotectKey(EncryptedClaudeKey);
     internal static string ProtectKey(string key) => Convert.ToBase64String(ProtectedData.Protect(Encoding.UTF8.GetBytes(key), null, DataProtectionScope.CurrentUser));
     internal static string UnprotectKey(string encrypted) => Encoding.UTF8.GetString(ProtectedData.Unprotect(Convert.FromBase64String(encrypted), null, DataProtectionScope.CurrentUser));
 }

@@ -44,6 +44,7 @@ public sealed class VisionClient : IDisposable
     {
         if (string.IsNullOrWhiteSpace(key)) throw new ArgumentException("Añade tu API key.");
         if (provider == "Gemini") return await SolveGeminiAsync(image, key, model, task, token);
+        if (provider == "Claude") return await SolveClaudeAsync(image, key, model, task, instructions, token);
         if (provider != "OpenAI") throw new ArgumentException("Proveedor no reconocido.");
         using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/responses");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key.Trim());
@@ -62,7 +63,7 @@ public sealed class VisionClient : IDisposable
             if (doc.RootElement.TryGetProperty("error", out var error) && error.TryGetProperty("message", out var message)) detail = message.GetString() ?? "";
         }
         catch (JsonException) { }
-        if (!string.IsNullOrEmpty(key)) detail = detail.Replace(key, "[clave oculta]", StringComparison.Ordinal);
+        if (!string.IsNullOrWhiteSpace(key)) detail = detail.Replace(key.Trim(), "[clave oculta]", StringComparison.Ordinal);
         if (detail.Length > 450) detail = detail[..450];
         string friendly = status switch
         {
@@ -176,6 +177,67 @@ public sealed class VisionClient : IDisposable
         if (root.TryGetProperty("usage", out var u) && u.ValueKind == JsonValueKind.Object && u.TryGetProperty("input_tokens", out var i) && u.TryGetProperty("output_tokens", out var o))
             usage = $"Tokens: {i.GetInt32():N0} entrada · {o.GetInt32():N0} salida";
         return new Answer(answer, usage);
+    }
+    internal static string CreateClaudePayload(byte[] image, string model, string task, string instructions)
+    {
+        if (image.Length == 0) throw new ArgumentException("La captura está vacía.");
+        // Claude's direct API allows at most 10 MB after base64 encoding per image.
+        if (4L * ((image.Length + 2L) / 3L) > 10 * 1024 * 1024)
+            throw new ArgumentException("La captura supera el límite de imagen de Claude (10 MB en base64). Selecciona solo el ejercicio.");
+        if (string.IsNullOrWhiteSpace(model)) throw new ArgumentException("Selecciona un modelo de Claude.");
+        var payload = new Dictionary<string, object>
+        {
+            ["model"] = model,
+            ["max_tokens"] = 16384,
+            ["system"] = TaskPrompts.System,
+            ["messages"] = new object[] { new { role = "user", content = new object[] {
+                new { type = "image", source = new { type = "base64", media_type = "image/png", data = Convert.ToBase64String(image) } },
+                new { type = "text", text = TaskPrompts.ForTask(task) + (string.IsNullOrWhiteSpace(instructions) ? "" : "\n" + instructions) }
+            } } }
+        };
+        if (model is "claude-sonnet-5-5" or "claude-opus-5-5" or "claude-fable-5-1")
+            payload["thinking"] = new { type = "adaptive" };
+        return JsonSerializer.Serialize(payload);
+    }
+
+    private async Task<Answer> SolveClaudeAsync(byte[] image, string key, string model, string task, string instructions, CancellationToken token)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.anthropic.com/v1/messages");
+        request.Headers.Add("x-api-key", key.Trim());
+        request.Headers.Add("anthropic-version", "2023-06-01");
+        request.Content = new StringContent(CreateClaudePayload(image, model, task, instructions), Encoding.UTF8, "application/json");
+        using var response = await client.SendAsync(request, token);
+        string body = await response.Content.ReadAsStringAsync(token);
+        if (!response.IsSuccessStatusCode) throw new InvalidOperationException(ErrorMessage(response.StatusCode, body, key, "Claude"));
+        return ParseClaudeAnswer(body);
+    }
+
+    internal static Answer ParseClaudeAnswer(string body)
+    {
+        using var doc = JsonDocument.Parse(body);
+        var root = doc.RootElement;
+        if (root.TryGetProperty("error", out _)) throw new InvalidOperationException("Claude no pudo responder. Inténtalo de nuevo.");
+        string stop = root.TryGetProperty("stop_reason", out var reason) ? reason.GetString() ?? "" : "";
+        if (stop == "max_tokens") throw new InvalidOperationException("Claude alcanzó el límite de salida. La respuesta incompleta no se mostrará como solución. Captura un solo ejercicio y vuelve a consultar.");
+        if (stop == "refusal" || (root.TryGetProperty("stop_details", out var details) && details.ValueKind == JsonValueKind.Object &&
+            details.TryGetProperty("type", out var detailType) && detailType.GetString() == "refusal"))
+            throw new InvalidOperationException("Claude no pudo responder a esta captura.");
+        if (stop != "end_turn" && stop != "stop_sequence")
+            throw new InvalidOperationException("Claude no completó la respuesta. Inténtalo de nuevo.");
+        var parts = new List<string>();
+        if (root.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.Array)
+            foreach (var part in content.EnumerateArray())
+                if (part.TryGetProperty("type", out var type) && type.GetString() == "text" &&
+                    part.TryGetProperty("text", out var text) && !string.IsNullOrWhiteSpace(text.GetString())) parts.Add(text.GetString()!);
+        if (parts.Count == 0) throw new InvalidOperationException("Claude no devolvió texto. Prueba otro modelo o captura un solo ejercicio.");
+        string usage = "";
+        if (root.TryGetProperty("usage", out var u))
+        {
+            int input = u.TryGetProperty("input_tokens", out var i) ? i.GetInt32() : 0;
+            int output = u.TryGetProperty("output_tokens", out var o) ? o.GetInt32() : 0;
+            usage = $"Tokens: {input:N0} entrada · {output:N0} salida";
+        }
+        return new Answer(string.Join("\n\n", parts), usage);
     }
     public void Dispose() => client.Dispose();
 }

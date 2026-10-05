@@ -48,7 +48,21 @@ public partial class MainWindow : Window
     private bool loadingProvider;
     private string activeProvider = "OpenAI";
     private string CurrentModel => ModelBox.SelectedItem as string ?? "";
-    private string CurrentKey => ProviderBox.SelectedIndex == 1 ? GeminiKeyBox.Password.Trim() : KeyBox.Password.Trim();
+    private string CurrentKey => KeyForProvider(activeProvider);
+    private string SelectedProvider => ProviderBox.SelectedIndex switch { 1 => "Gemini", 2 => "Claude", _ => "OpenAI" };
+    private string KeyForProvider(string provider) => provider switch
+    {
+        "Gemini" => GeminiKeyBox.Password.Trim(),
+        "Claude" => ClaudeKeyBox.Password.Trim(),
+        _ => KeyBox.Password.Trim()
+    };
+    private string SavedModel => activeProvider switch { "Gemini" => settings.GeminiModel, "Claude" => settings.ClaudeModel, _ => settings.Model };
+    private void RememberSelectedModel()
+    {
+        if (activeProvider == "Gemini") settings.GeminiModel = CurrentModel;
+        else if (activeProvider == "Claude") settings.ClaudeModel = CurrentModel;
+        else settings.Model = CurrentModel;
+    }
 
     public MainWindow(HttpMessageHandler? testHandler = null, bool persistSettings = true)
     {
@@ -82,12 +96,13 @@ public partial class MainWindow : Window
         draftHideModifiers = settings.HideHotkeyModifiers;
         draftHideVirtualKey = settings.HideHotkeyVirtualKey;
         HideHotkeyBox.Text = GlobalHotkey.Label(draftHideModifiers, draftHideVirtualKey);
+        foreach (var shortcut in settings.ModelShortcuts) AddShortcutEditor(shortcut);
         DismissSecondsBox.Text = settings.DismissSeconds.ToString();
         (settings.DismissMode == ResponseDismissal.Click ? DismissClickChoice : settings.DismissMode == ResponseDismissal.Scroll ? DismissScrollChoice : DismissTimeChoice).IsChecked = true;
         answer.Dismissal.Warning += message => StatusText.Text = message;
         RememberCheck.IsChecked = settings.RememberKey;
         loadingProvider = true;
-        ProviderBox.SelectedIndex = settings.Provider == "Gemini" ? 1 : 0;
+        ProviderBox.SelectedIndex = settings.Provider switch { "Gemini" => 1, "Claude" => 2, _ => 0 };
         activeProvider = settings.Provider;
         PopulateModels();
         loadingProvider = false;
@@ -107,6 +122,9 @@ public partial class MainWindow : Window
         try { GeminiKeyBox.Password = settings.ReadGeminiKey(); }
         catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or FormatException)
         { warning = "Vuelve a introducir tu API key de Gemini."; }
+        try { ClaudeKeyBox.Password = settings.ReadClaudeKey(); }
+        catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or FormatException)
+        { warning = "Vuelve a introducir tu API key de Claude."; }
         ModelSummary.Text = activeProvider + " · " + CurrentModel;
         StatusText.Text = !string.IsNullOrEmpty(warning) ? warning : string.IsNullOrEmpty(CurrentKey) ? "Añade tu API key." : "Listo.";
         tray = new Forms.NotifyIcon { Icon = TrayArtwork.Create(), Text = "", Visible = true };
@@ -152,6 +170,8 @@ public partial class MainWindow : Window
             HwndSource.FromHwnd(handle)?.AddHook(WindowHook);
             hotkeys = new CaptureHotkeys(handle);
             hotkeys.Initialize(settings.HotkeyModifiers, settings.HotkeyVirtualKey, settings.ShortHotkeyModifiers, settings.ShortHotkeyVirtualKey, settings.HideHotkeyModifiers, settings.HideHotkeyVirtualKey, out string error);
+            hotkeys.InitializeModels(settings.ModelShortcuts, out string modelError);
+            error = string.Join(" ", new[] { error, modelError }.Where(value => value.Length > 0));
             if (!string.IsNullOrEmpty(error)) StatusText.Text = error;
             UpdateHotkeyDisplay();
         };
@@ -217,13 +237,14 @@ public partial class MainWindow : Window
             bool full = hotkeys?.Full?.Registered == true && id == hotkeys.Full.Id;
             bool shortAnswer = hotkeys?.Short?.Registered == true && id == hotkeys.Short.Id;
             bool hide = hotkeys?.Hide?.Registered == true && id == hotkeys.Hide.Id;
-            if (full || shortAnswer || hide)
+            var modelShortcut = hotkeys?.Models.FirstOrDefault(item => item.Hotkey.Registered && id == item.Hotkey.Id).Shortcut;
+            if (full || shortAnswer || hide || modelShortcut != null)
             {
                 handled = true;
-                if (!HotkeyBox.IsKeyboardFocusWithin && !ShortHotkeyBox.IsKeyboardFocusWithin && !HideHotkeyBox.IsKeyboardFocusWithin)
+                if (!HotkeyBox.IsKeyboardFocusWithin && !ShortHotkeyBox.IsKeyboardFocusWithin && !HideHotkeyBox.IsKeyboardFocusWithin && !shortcutEditors.Any(row => row.KeyBox.IsKeyboardFocusWithin))
                 {
                     if (hide) answer.Hide();
-                    else _ = CaptureAsync(shortAnswer);
+                    else _ = CaptureAsync(modelShortcut?.ShortAnswer ?? shortAnswer, modelShortcut);
                 }
             }
         }
@@ -250,8 +271,7 @@ public partial class MainWindow : Window
         if (validSeconds) settings.DismissSeconds = seconds;
         settings.Provider = activeProvider;
         if (string.IsNullOrWhiteSpace(CurrentModel)) throw new ArgumentException("Selecciona un modelo.");
-        if (activeProvider == "Gemini") settings.GeminiModel = CurrentModel;
-        else settings.Model = CurrentModel;
+        RememberSelectedModel();
         settings.Corner = CornerBox.SelectedIndex == 1 ? "left" : "right";
         settings.ScreenDevice = SelectedScreen().DeviceName;
         settings.Region = AreaBox.SelectedIndex == 1;
@@ -262,7 +282,7 @@ public partial class MainWindow : Window
         settings.Task = (TaskBox.SelectedItem as ComboBoxItem)?.Tag as string == "complete" ? TaskPrompts.Complete : TaskPrompts.Alternative;
         settings.Instructions = "";
         ModelSummary.Text = activeProvider + " · " + CurrentModel;
-        if (persist && persistSettings) settings.Save(KeyBox.Password.Trim(), GeminiKeyBox.Password.Trim());
+        if (persist && persistSettings) settings.Save(KeyBox.Password.Trim(), GeminiKeyBox.Password.Trim(), ClaudeKeyBox.Password.Trim());
     }
     private bool TryReadTextColor(out string? color)
     {
@@ -384,6 +404,7 @@ public partial class MainWindow : Window
         HideHotkeyStatus.Text = hotkeys?.Hide?.Registered == true ? "Activo: " + hideLabel : "Atajo ocupado. Elige otro.";
         CaptureHint.Text = "Completa: " + label + "\nRecortada: " + shortLabel + "\nOcultar: " + hideLabel;
         trayHint.Content = "Viso\n" + CaptureHint.Text;
+        UpdateModelShortcutDisplay();
     }
     private void DismissModeChanged(object sender, RoutedEventArgs e)
     {
@@ -434,7 +455,7 @@ public partial class MainWindow : Window
             settings.SavedArea = CaptureArea.Create(screen.DeviceName, screen.Bounds, selector.Selected.Value);
             settings.Region = true;
             AreaBox.SelectedIndex = 1;
-            settings.Save(KeyBox.Password.Trim(), GeminiKeyBox.Password.Trim());
+            settings.Save(KeyBox.Password.Trim(), GeminiKeyBox.Password.Trim(), ClaudeKeyBox.Password.Trim());
             StatusText.Text = "Área guardada.";
         }
         catch (Exception ex)
@@ -457,18 +478,20 @@ public partial class MainWindow : Window
     {
         OpenAiKeyPanel.Visibility = activeProvider == "OpenAI" ? Visibility.Visible : Visibility.Collapsed;
         GeminiKeyPanel.Visibility = activeProvider == "Gemini" ? Visibility.Visible : Visibility.Collapsed;
+        ClaudeKeyPanel.Visibility = activeProvider == "Claude" ? Visibility.Visible : Visibility.Collapsed;
         ModelBox.Items.Clear();
-        string[] models = activeProvider == "Gemini"
-            ? new[] { "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite", "gemini-3.5-flash" }
-            : new[] { "gpt-5.4-mini", "gpt-5.4" };
+        string[] models = ModelShortcut.Choices.Where(choice => choice.Provider == activeProvider).Select(choice => choice.Model).ToArray();
         foreach (string model in models) ModelBox.Items.Add(model);
-        string savedModel = activeProvider == "Gemini" ? settings.GeminiModel : settings.Model;
+        string savedModel = SavedModel;
         // Keep an existing saved model available without allowing free typing.
         if (!models.Contains(savedModel)) ModelBox.Items.Add(savedModel);
         ModelBox.SelectedItem = savedModel;
-        ModelHelp.Text = activeProvider == "Gemini"
-            ? "Flash-Lite cuesta menos; Flash ofrece mayor capacidad."
-            : "Mini cuesta menos; GPT-5.4 ofrece mayor capacidad.";
+        ModelHelp.Text = activeProvider switch
+        {
+            "Gemini" => "Flash-Lite cuesta menos; Flash ofrece mayor capacidad.",
+            "Claude" => "Haiku prioriza rapidez; Sonnet combina rapidez y capacidad; Opus y Fable ofrecen mayor capacidad.",
+            _ => "Mini cuesta menos; GPT-5.4 ofrece mayor capacidad."
+        };
         ModelSummary.Text = activeProvider + " · " + CurrentModel;
     }
     private void ProviderChanged(object sender, SelectionChangedEventArgs e)
@@ -476,10 +499,9 @@ public partial class MainWindow : Window
         if (loadingProvider || settings == null || ModelBox == null) return;
         if (!string.IsNullOrWhiteSpace(CurrentModel))
         {
-            if (activeProvider == "Gemini") settings.GeminiModel = CurrentModel;
-            else settings.Model = CurrentModel;
+            RememberSelectedModel();
         }
-        activeProvider = ProviderBox.SelectedIndex == 1 ? "Gemini" : "OpenAI";
+        activeProvider = SelectedProvider;
         settings.Provider = activeProvider;
         PopulateModels();
     }
@@ -499,7 +521,7 @@ public partial class MainWindow : Window
         if (wasHidden) AnimateWindowOpen();
         Activate();
     }
-    private async Task CaptureAsync(bool shortAnswer = false)
+    private async Task CaptureAsync(bool shortAnswer = false, ModelShortcut? modelShortcut = null)
     {
         if (busy || exiting) return;
         try
@@ -509,6 +531,9 @@ public partial class MainWindow : Window
             hasResponse = false;
             answer.ClearResponse();
             ReadSettings(true);
+            var target = modelShortcut?.Copy() ?? new ModelShortcut { Provider = activeProvider, Model = CurrentModel };
+            string key = KeyForProvider(target.Provider);
+            if (string.IsNullOrWhiteSpace(key)) throw new ArgumentException($"Añade tu API key de {target.Provider}.");
             int maxCharacters = settings.MaxResponseCharacters;
             var screen = SelectedScreen();
             var captureBounds = settings.Region
@@ -522,7 +547,7 @@ public partial class MainWindow : Window
             capture = next;
             StatusText.Text = $"Captura lista: {next.Bounds.Width} × {next.Bounds.Height}.";
             SetBusy(false);
-            await SendAsync(shortAnswer, maxCharacters);
+            await SendAsync(shortAnswer, maxCharacters, target, key);
         }
         catch (Exception ex)
         {
@@ -536,22 +561,21 @@ public partial class MainWindow : Window
             }
         }
     }
-    private async Task SendAsync(bool shortAnswer, int maxCharacters)
+    private async Task SendAsync(bool shortAnswer, int maxCharacters, ModelShortcut target, string key)
     {
         if (busy || capture == null || exiting) return;
-        if (string.IsNullOrWhiteSpace(CurrentKey))
+        if (string.IsNullOrWhiteSpace(key))
         {
-            ReportError($"Añade tu API key de {activeProvider}.");
+            ReportError($"Añade tu API key de {target.Provider}.");
             return;
         }
         try
         {
             ReadSettings(true);
-            string model = CurrentModel;
-            string provider = activeProvider;
+            string model = target.Model;
+            string provider = target.Provider;
             string task = settings.Task;
             string instructions = settings.Instructions;
-            string key = CurrentKey;
             byte[] png = capture.Png;
             answerScreen = SelectedScreen();
             requestCancellation = new CancellationTokenSource();
@@ -602,13 +626,15 @@ public partial class MainWindow : Window
     }
     private void SaveClick(object sender, RoutedEventArgs e)
     {
+        var previousModels = settings.ModelShortcuts;
         var previous = (settings.HotkeyModifiers, settings.HotkeyVirtualKey, settings.ShortHotkeyModifiers, settings.ShortHotkeyVirtualKey, settings.HideHotkeyModifiers, settings.HideHotkeyVirtualKey, settings.MaxResponseCharacters, settings.DismissMode, settings.DismissSeconds);
         bool changedHotkeys = false;
         try
         {
             ReadSettings(false);
             string error = "No se pudieron registrar los atajos.";
-            if (hotkeys == null || !hotkeys.TryReplace(draftModifiers, draftVirtualKey, draftShortModifiers, draftShortVirtualKey, draftHideModifiers, draftHideVirtualKey, out error))
+            var modelDrafts = shortcutEditors.Select(row => row.Draft.Copy()).ToList();
+            if (hotkeys == null || !hotkeys.TryReplace(draftModifiers, draftVirtualKey, draftShortModifiers, draftShortVirtualKey, draftHideModifiers, draftHideVirtualKey, modelDrafts, out error))
             {
                 settings.MaxResponseCharacters = previous.MaxResponseCharacters;
                 settings.DismissMode = previous.DismissMode; settings.DismissSeconds = previous.DismissSeconds;
@@ -618,19 +644,22 @@ public partial class MainWindow : Window
             settings.HotkeyModifiers = draftModifiers; settings.HotkeyVirtualKey = draftVirtualKey;
             settings.ShortHotkeyModifiers = draftShortModifiers; settings.ShortHotkeyVirtualKey = draftShortVirtualKey;
             settings.HideHotkeyModifiers = draftHideModifiers; settings.HideHotkeyVirtualKey = draftHideVirtualKey;
+            settings.ModelShortcuts = modelDrafts;
             ReadSettings(true);
+            foreach (var row in shortcutEditors) row.Saved = row.Draft.Copy();
             UpdateHotkeyDisplay(); UpdateCaptureOptions();
             answer.ApplySettings(settings, SelectedScreen());
             StatusText.Text = "Guardado.";
         }
         catch (Exception ex)
         {
+            settings.ModelShortcuts = previousModels;
             settings.HotkeyModifiers = previous.HotkeyModifiers; settings.HotkeyVirtualKey = previous.HotkeyVirtualKey;
             settings.ShortHotkeyModifiers = previous.ShortHotkeyModifiers; settings.ShortHotkeyVirtualKey = previous.ShortHotkeyVirtualKey;
             settings.MaxResponseCharacters = previous.MaxResponseCharacters;
             settings.HideHotkeyModifiers = previous.HideHotkeyModifiers; settings.HideHotkeyVirtualKey = previous.HideHotkeyVirtualKey;
             settings.DismissMode = previous.DismissMode; settings.DismissSeconds = previous.DismissSeconds;
-            if (changedHotkeys && hotkeys != null && !hotkeys.TryReplace(previous.HotkeyModifiers, previous.HotkeyVirtualKey, previous.ShortHotkeyModifiers, previous.ShortHotkeyVirtualKey, previous.HideHotkeyModifiers, previous.HideHotkeyVirtualKey, out _)) hotkeys.Dispose();
+            if (changedHotkeys && hotkeys != null && !hotkeys.TryReplace(previous.HotkeyModifiers, previous.HotkeyVirtualKey, previous.ShortHotkeyModifiers, previous.ShortHotkeyVirtualKey, previous.HideHotkeyModifiers, previous.HideHotkeyVirtualKey, previousModels, out _)) hotkeys.Dispose();
             UpdateHotkeyDisplay(); StatusText.Text = "No se pudo guardar: " + ex.Message;
         }
     }
@@ -668,6 +697,7 @@ public partial class MainWindow : Window
         int originalProvider = ProviderBox.SelectedIndex;
         string originalOpenAiModel = settings.Model;
         string originalGeminiModel = settings.GeminiModel;
+        string originalClaudeModel = settings.ClaudeModel;
         ProviderBox.SelectedIndex = 0;
         ModelBox.SelectedItem = "gpt-5.4";
         ProviderBox.SelectedIndex = 1;
@@ -677,6 +707,13 @@ public partial class MainWindow : Window
         if (CurrentModel != "gpt-5.4") throw new InvalidOperationException("Se perdió el modelo OpenAI al cambiar de proveedor.");
         ProviderBox.SelectedIndex = 1;
         if (CurrentModel != "gemini-3.1-flash-lite") throw new InvalidOperationException("Se perdió el modelo Gemini al cambiar de proveedor.");
+        ProviderBox.SelectedIndex = 2;
+        if (ModelBox.Items.Count != 4 || CurrentModel != originalClaudeModel || !ClaudeKeyPanel.IsVisible || GeminiKeyPanel.IsVisible || OpenAiKeyPanel.IsVisible)
+            throw new InvalidOperationException("Claude no muestra sus modelos o su campo de clave independiente.");
+        ModelBox.SelectedItem = "claude-haiku-4-5";
+        ProviderBox.SelectedIndex = 0;
+        ProviderBox.SelectedIndex = 2;
+        if (CurrentModel != "claude-haiku-4-5") throw new InvalidOperationException("Se perdió el modelo Claude al cambiar de proveedor.");
         ModelBox.ApplyTemplate();
         if (ModelBox.IsEditable || ModelBox.Template.FindName("PART_EditableTextBox", ModelBox) is not TextBox modelInput || modelInput.Visibility == Visibility.Visible)
             throw new InvalidOperationException("El modelo debe elegirse de la lista, sin campo de escritura.");
@@ -685,8 +722,9 @@ public partial class MainWindow : Window
         loadingProvider = true;
         settings.Model = originalOpenAiModel;
         settings.GeminiModel = originalGeminiModel;
+        settings.ClaudeModel = originalClaudeModel;
         ProviderBox.SelectedIndex = originalProvider;
-        activeProvider = originalProvider == 1 ? "Gemini" : "OpenAI";
+        activeProvider = SelectedProvider;
         settings.Provider = activeProvider;
         PopulateModels();
         loadingProvider = false;
@@ -731,6 +769,81 @@ public partial class MainWindow : Window
             if (visionTestHandler.Prompts.Distinct().Count() != 1)
                 throw new InvalidOperationException("El modo recortado alteró el prompt del modelo.");
             MaxCharactersBox.Text = "10";
+
+            GeminiKeyBox.Password = "local-gemini-key";
+            ClaudeKeyBox.Password = "local-claude-key";
+            AddShortcutEditor(new ModelShortcut { Model = "gpt-5.4", Modifiers = 7, VirtualKey = 0x82 });
+            AddShortcutEditor(new ModelShortcut { Provider = "Gemini", Model = "gemini-3.1-flash-lite", Modifiers = 7, VirtualKey = 0x83, ShortAnswer = true });
+            AddShortcutEditor(new ModelShortcut { Provider = "Claude", Model = "claude-sonnet-5-5", Modifiers = 7, VirtualKey = 0x84 });
+            SaveClick(this, new RoutedEventArgs());
+            if (hotkeys?.Models.Count != 3 || settings.ModelShortcuts.Count != 3)
+                throw new InvalidOperationException("No se activaron los atajos por modelo.");
+            ShowMain();
+            CaptureNav.IsChecked = true;
+            ConfigScroll.ScrollToBottom();
+            await Task.Delay(250);
+            UiSnapshot.Save(this, "smoke-model-shortcuts.png");
+            var activeModels = hotkeys.Models.ToArray();
+            shortcutEditors[1].Draft.VirtualKey = shortcutEditors[0].Draft.VirtualKey;
+            SaveClick(this, new RoutedEventArgs());
+            if (!StatusText.Text.Contains("distinta") || !hotkeys.Models.SequenceEqual(activeModels))
+                throw new InvalidOperationException("Un atajo por modelo duplicado alteró los atajos activos.");
+            shortcutEditors[1].Draft.VirtualKey = 0x83;
+            MaxCharactersBox.Text = "1";
+            foreach (var entry in activeModels)
+            {
+                visionTestHandler.Reset();
+                // Keep the default provider on OpenAI to verify independent Gemini routing.
+                ProviderBox.SelectedIndex = 0;
+                ShowMain();
+                CaptureNav.IsChecked = true;
+                await Task.Delay(250);
+                shortcutEditors[0].KeyBox.Focus();
+                if (!shortcutEditors[0].KeyBox.IsKeyboardFocusWithin)
+                    throw new InvalidOperationException("No se enfocó el editor del atajo por modelo.");
+                bool ignored = false;
+                int before = visionTestHandler.RequestCount;
+                WindowHook(handle, 0x0312, new IntPtr(entry.Hotkey.Id), IntPtr.Zero, ref ignored);
+                if (!ignored || visionTestHandler.RequestCount != before || busy)
+                    throw new InvalidOperationException("Editar un atajo inició una consulta.");
+                Keyboard.ClearFocus();
+                FocusManager.SetFocusedElement(this, null);
+                bool handled = false;
+                WindowHook(handle, 0x0312, new IntPtr(entry.Hotkey.Id), IntPtr.Zero, ref handled);
+                await visionTestHandler.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                var target = visionTestHandler.Targets.Last();
+                if (!handled || target.Model != entry.Shortcut.Model ||
+                    target.Key != (entry.Shortcut.Provider switch { "Gemini" => "local-gemini-key", "Claude" => "local-claude-key", _ => "local-test-key" }) ||
+                    target.Url.Contains("generativelanguage.googleapis.com") != (entry.Shortcut.Provider == "Gemini") ||
+                    target.Url.Contains("api.anthropic.com") != (entry.Shortcut.Provider == "Claude"))
+                    throw new InvalidOperationException("El atajo no consultó su modelo con la clave correcta.");
+                visionTestHandler.Complete("c. Modelo elegido");
+                for (int attempt = 0; busy && attempt < 100; attempt++) await Task.Delay(25);
+                if (busy || answer.ResponseText != (entry.Shortcut.ShortAnswer ? "c" : "c. Modelo elegido") || IsVisible)
+                    throw new InvalidOperationException("El atajo por modelo no mostró la respuesta esperada.");
+            }
+            MaxCharactersBox.Text = "10";
+            foreach (var row in shortcutEditors.ToArray()) ModelShortcutsPanel.Children.Remove(row.Panel);
+            shortcutEditors.Clear();
+            SaveClick(this, new RoutedEventArgs());
+            if (hotkeys.Models.Count != 0 || activeModels.Any(entry => entry.Hotkey.Registered))
+                throw new InvalidOperationException("Eliminar un atajo por modelo no liberó la combinación.");
+            ProviderBox.SelectedIndex = 2;
+            visionTestHandler.Reset();
+            flow = CaptureAsync();
+            await visionTestHandler.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            if (visionTestHandler.Targets.Last().Model != CurrentModel || visionTestHandler.Targets.Last().Key != "local-claude-key")
+                throw new InvalidOperationException("El atajo principal no usa el modelo seleccionado de Claude.");
+            visionTestHandler.Complete("Respuesta de Claude");
+            await flow;
+            if (answer.ResponseText != "Respuesta de Claude") throw new InvalidOperationException("No se mostró la respuesta de Claude.");
+            ClaudeKeyBox.Password = "";
+            int requestsBeforeMissingKey = visionTestHandler.RequestCount;
+            await CaptureAsync(false, new ModelShortcut { Provider = "Claude", Model = "claude-sonnet-5-5" });
+            if (visionTestHandler.RequestCount != requestsBeforeMissingKey || !StatusText.Text.Contains("API key de Claude") || answer.IsVisible)
+                throw new InvalidOperationException("Faltar la clave de Claude usó una clave de otro proveedor o mostró una respuesta.");
+            ClaudeKeyBox.Password = "local-claude-key";
+            ProviderBox.SelectedIndex = 0;
 
             void VerifySilentError(string expected)
             {
@@ -844,6 +957,25 @@ public partial class MainWindow : Window
                 if (externalKey.TryReplace(7, candidate, out _)) { occupied = candidate; break; }
             if (pair.TryReplace(7, shortKey, 7, hidden, 7, occupied, out _) || pair.Full != beforeFull || pair.Short != beforeShort || pair.Hide != beforeHide || beforeHide?.Registered != true)
                 throw new InvalidOperationException("Un conflicto al ocultar eliminó uno de los tres atajos.");
+            externalKey.Dispose();
+            int extraKey = 0;
+            for (int candidate = 0x7C; candidate <= 0x87; candidate++)
+                if (pair.TryReplace(7, shortKey, 7, hidden, 7, fullKey,
+                    new[] { new ModelShortcut { Modifiers = 7, VirtualKey = candidate } }, out _))
+                { extraKey = candidate; break; }
+            if (extraKey == 0) throw new InvalidOperationException("No se registró el atajo adicional por modelo.");
+            if (!pair.TryReplace(7, extraKey, 7, hidden, 7, fullKey,
+                new[] { new ModelShortcut { Modifiers = 7, VirtualKey = shortKey, Provider = "Gemini", Model = "gemini-3.1-flash-lite" } }, out _))
+                throw new InvalidOperationException("No se pudo intercambiar un atajo por modelo con el principal.");
+            beforeFull = pair.Full; beforeShort = pair.Short; beforeHide = pair.Hide;
+            var beforeModels = pair.Models;
+            occupied = 0;
+            for (int candidate = 0x7C; candidate <= 0x87; candidate++)
+                if (externalKey.TryReplace(7, candidate, out _)) { occupied = candidate; break; }
+            if (occupied == 0 || pair.TryReplace(7, extraKey, 7, hidden, 7, fullKey,
+                new[] { new ModelShortcut { Modifiers = 7, VirtualKey = shortKey }, new ModelShortcut { Modifiers = 7, VirtualKey = occupied } }, out _) ||
+                pair.Full != beforeFull || pair.Short != beforeShort || pair.Hide != beforeHide || pair.Models != beforeModels || !beforeModels[0].Hotkey.Registered)
+                throw new InvalidOperationException("Un conflicto en un atajo por modelo cambió los atajos activos.");
         }
         ShowMain();
         await Task.Delay(250);

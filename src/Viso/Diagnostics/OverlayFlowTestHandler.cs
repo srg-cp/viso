@@ -13,6 +13,7 @@ internal sealed class OverlayFlowTestHandler : HttpMessageHandler
 {
     public int RequestCount { get; private set; }
     public List<string> Prompts { get; } = new();
+    public List<(string Url, string Model, string Key)> Targets { get; } = new();
     public TaskCompletionSource<bool> Entered { get; private set; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private TaskCompletionSource<string> result = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public void Complete(string text) => result.SetResult(text);
@@ -26,9 +27,32 @@ internal sealed class OverlayFlowTestHandler : HttpMessageHandler
     {
         RequestCount++;
         using var payload = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(cancellationToken));
-        Prompts.Add(payload.RootElement.GetProperty("instructions").GetString() + "\n" + payload.RootElement.GetProperty("input")[0].GetProperty("content")[0].GetProperty("text").GetString());
+        bool gemini = request.RequestUri!.Host == "generativelanguage.googleapis.com";
+        bool claude = request.RequestUri.Host == "api.anthropic.com";
+        string model = gemini ? request.RequestUri.AbsolutePath.Split('/')[3].Split(':')[0] : payload.RootElement.GetProperty("model").GetString()!;
+        string key = gemini || claude ? System.Linq.Enumerable.Single(request.Headers.GetValues(gemini ? "x-goog-api-key" : "x-api-key")) : request.Headers.Authorization!.Parameter!;
+        Targets.Add((request.RequestUri.ToString(), model, key));
+        Prompts.Add(gemini
+            ? payload.RootElement.GetProperty("systemInstruction").GetProperty("parts")[0].GetProperty("text").GetString() + "\n" + payload.RootElement.GetProperty("contents")[0].GetProperty("parts")[0].GetProperty("text").GetString()
+            : claude ? payload.RootElement.GetProperty("system").GetString() + "\n" + payload.RootElement.GetProperty("messages")[0].GetProperty("content")[1].GetProperty("text").GetString()
+            : payload.RootElement.GetProperty("instructions").GetString() + "\n" + payload.RootElement.GetProperty("input")[0].GetProperty("content")[0].GetProperty("text").GetString());
         Entered.SetResult(true);
         string text = await result.Task.WaitAsync(cancellationToken);
+        if (claude) return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(JsonSerializer.Serialize(new
+            {
+                type = "message", stop_reason = "end_turn",
+                content = new[] { new { type = "text", text } }
+            }), Encoding.UTF8, "application/json")
+        };
+        if (gemini) return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(JsonSerializer.Serialize(new
+            {
+                candidates = new[] { new { finishReason = "STOP", content = new { parts = new[] { new { text } } } } }
+            }), Encoding.UTF8, "application/json")
+        };
         return new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(JsonSerializer.Serialize(new

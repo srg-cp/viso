@@ -11,6 +11,8 @@ internal sealed class CaptureHotkeys : IDisposable
     public GlobalHotkey? Full { get; private set; }
     public GlobalHotkey? Short { get; private set; }
     public GlobalHotkey? Hide { get; private set; }
+    public IReadOnlyList<(GlobalHotkey Hotkey, ModelShortcut Shortcut)> Models { get; private set; }
+        = Array.Empty<(GlobalHotkey, ModelShortcut)>();
     public CaptureHotkeys(IntPtr window) => this.window = window;
     public void Initialize(uint fullModifiers, int fullKey, uint shortModifiers, int shortKey, uint hideModifiers, int hideKey, out string error)
     {
@@ -23,19 +25,36 @@ internal sealed class CaptureHotkeys : IDisposable
         error = string.Join(" ", new[] { fullError, shortError, hideError }.Where(value => value.Length > 0));
     }
     public bool TryReplace(uint fullModifiers, int fullKey, uint shortModifiers, int shortKey, out string error)
-        => TryReplaceCore(fullModifiers, fullKey, shortModifiers, shortKey, null, out error);
+        => TryReplaceCore(fullModifiers, fullKey, shortModifiers, shortKey, null, Array.Empty<ModelShortcut>(), out error);
     public bool TryReplace(uint fullModifiers, int fullKey, uint shortModifiers, int shortKey, uint hideModifiers, int hideKey, out string error)
-        => TryReplaceCore(fullModifiers, fullKey, shortModifiers, shortKey, (hideModifiers, hideKey), out error);
-    private bool TryReplaceCore(uint fullModifiers, int fullKey, uint shortModifiers, int shortKey, (uint Modifiers, int Key)? hide, out string error)
+        => TryReplaceCore(fullModifiers, fullKey, shortModifiers, shortKey, (hideModifiers, hideKey), Array.Empty<ModelShortcut>(), out error);
+    public bool TryReplace(uint fullModifiers, int fullKey, uint shortModifiers, int shortKey, uint hideModifiers, int hideKey, IReadOnlyList<ModelShortcut> models, out string error)
+        => TryReplaceCore(fullModifiers, fullKey, shortModifiers, shortKey, (hideModifiers, hideKey), models, out error);
+    public void InitializeModels(IReadOnlyList<ModelShortcut> models, out string error)
+    {
+        var registered = new List<(GlobalHotkey, ModelShortcut)>();
+        var errors = new List<string>();
+        foreach (var shortcut in models)
+        {
+            var candidate = new GlobalHotkey(window, nextId); nextId += 2;
+            if (candidate.TryReplace(shortcut.Modifiers, shortcut.VirtualKey, out string failure))
+                registered.Add((candidate, shortcut.Copy()));
+            else { candidate.Dispose(); errors.Add(failure); }
+        }
+        Models = registered;
+        error = string.Join(" ", errors);
+    }
+    private bool TryReplaceCore(uint fullModifiers, int fullKey, uint shortModifiers, int shortKey, (uint Modifiers, int Key)? hide, IReadOnlyList<ModelShortcut> models, out string error)
     {
         error = "";
         var combinations = new List<(uint Modifiers, int Key)> { (fullModifiers, fullKey), (shortModifiers, shortKey) };
         if (hide.HasValue) combinations.Add(hide.Value);
+        combinations.AddRange(models.Select(item => (item.Modifiers, item.VirtualKey)));
         if (combinations.Any(item => !GlobalHotkey.IsValid(item.Modifiers, item.Key)))
         { error = "Cada atajo necesita un modificador y otra tecla."; return false; }
         if (combinations.Distinct().Count() != combinations.Count)
         { error = "Usa una combinación distinta para cada atajo."; return false; }
-        var previous = new[] { Full, Short, Hide }.Where(key => key != null).Cast<GlobalHotkey>().ToArray();
+        var previous = new[] { Full, Short, Hide }.Where(key => key != null).Cast<GlobalHotkey>().Concat(Models.Select(item => item.Hotkey)).ToArray();
         var created = new List<GlobalHotkey>();
         GlobalHotkey? Prepare(uint modifiers, int key, out string failure)
         {
@@ -58,9 +77,20 @@ internal sealed class CaptureHotkeys : IDisposable
             foreach (var key in created) key.Dispose();
             return false;
         }
-        Full = full; Short = shortAnswer; Hide = hideAnswer;
-        foreach (var key in previous) if (key != full && key != shortAnswer && key != hideAnswer) key.Dispose();
+        var modelKeys = new List<(GlobalHotkey Hotkey, ModelShortcut Shortcut)>();
+        foreach (var shortcut in models)
+        {
+            var registered = Prepare(shortcut.Modifiers, shortcut.VirtualKey, out error);
+            if (registered == null)
+            {
+                foreach (var key in created) key.Dispose();
+                return false;
+            }
+            modelKeys.Add((registered, shortcut.Copy()));
+        }
+        Full = full; Short = shortAnswer; Hide = hideAnswer; Models = modelKeys;
+        foreach (var key in previous) if (key != full && key != shortAnswer && key != hideAnswer && !modelKeys.Any(item => item.Hotkey == key)) key.Dispose();
         return true;
     }
-    public void Dispose() { Full?.Dispose(); Short?.Dispose(); Hide?.Dispose(); }
+    public void Dispose() { Full?.Dispose(); Short?.Dispose(); Hide?.Dispose(); foreach (var item in Models) item.Hotkey.Dispose(); }
 }

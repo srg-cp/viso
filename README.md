@@ -11,8 +11,8 @@
   <a href="https://github.com/srg-cp/viso/releases/latest"><img src="https://img.shields.io/github/v/release/srg-cp/viso?label=release" alt="Último Release"></a>
   <img src="https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&amp;logoColor=white" alt="Windows 10 y 11">
   <img src="https://img.shields.io/badge/.NET-8-512BD4?logo=dotnet&amp;logoColor=white" alt=".NET 8">
-  <img src="https://img.shields.io/badge/version-2.0.2-333333" alt="Versión 2.0.2">
-  <img src="https://img.shields.io/badge/modelos-OpenAI%20%2B%20Gemini-4285F4" alt="OpenAI y Gemini">
+  <img src="https://img.shields.io/badge/version-2.2.0-333333" alt="Versión 2.2.0">
+  <img src="https://img.shields.io/badge/modelos-OpenAI%20%2B%20Gemini%20%2B%20Claude-4285F4" alt="OpenAI, Gemini y Claude">
 </p>
 
 Viso es una aplicación de escritorio para Windows. Con un atajo captura la pantalla o un área guardada, envía la imagen al modelo que elijas y muestra la respuesta como texto sobre la pantalla.
@@ -28,11 +28,12 @@ Viso es una aplicación de escritorio para Windows. Con un atajo captura la pant
 - Dos tipos de ejercicio: elegir una alternativa o completar un enunciado.
 - Captura de un monitor completo o de un área que puedes guardar.
 - Dos atajos configurables: respuesta completa y respuesta con un límite de caracteres.
+- Atajos adicionales por modelo: combina OpenAI, Gemini y Claude y elige cuál consultar con cada combinación de teclas.
 - Texto superpuesto en la esquina inferior derecha o izquierda, con tamaño ajustable.
 - Vista previa en vivo de la respuesta completa o recortada y color de texto personalizado por RGB o selector de color.
 - Ocultamiento por tiempo, clic o scroll, con un atajo independiente para ocultar la respuesta.
 - Interfaz con modo claro y oscuro, animaciones y acceso desde la bandeja.
-- OpenAI y Gemini, con una clave independiente para cada proveedor.
+- OpenAI, Gemini y Claude (Anthropic), con una clave independiente para cada proveedor.
 - Ejecutable portable para Windows de 64 bits, con .NET incluido.
 
 ## Primeros pasos
@@ -52,6 +53,12 @@ Descarga **Viso.exe** desde el [último Release](https://github.com/srg-cp/viso/
 | **Alt + Mayús + X** | Oculta la respuesta |
 
 Los dos atajos de captura envían la imagen en una sola acción. El límite de caracteres incluye espacios y signos y solo afecta al texto mostrado; la consulta al modelo es la misma.
+
+En **Captura y atajos → Atajos por modelo**, pulsa **Añadir atajo por modelo**, elige el modelo y haz clic en su campo de combinación para pulsar las teclas que prefieras. Puedes crear varios, incluso de distintos proveedores, y activar **Respuesta recortada** para cualquiera de ellos. Todos usan el monitor o área configurados y el mismo límite de caracteres. Pulsa **Guardar** para activarlos o confirmar su eliminación.
+
+Por ejemplo, asigna **Alt + Mayús + 1** a GPT-5.4 Mini y **Alt + Mayús + 2** a Gemini Flash-Lite. Cada combinación captura y consulta directamente ese modelo, sin cambiar el selector de **Modelo de IA**. Introduce la clave de cada proveedor en esa sección. Los atajos originales siguen usando el modelo seleccionado allí. Las combinaciones deben ser distintas, incluido el atajo para ocultar; si una está ocupada, se mantienen los atajos que ya funcionaban. Los modelos quedan disponibles a la vez; mientras una consulta está en curso, las demás pulsaciones de captura se ignoran.
+
+Para **Claude**, selecciona ese proveedor en **Modelo de IA**, introduce tu API key de Anthropic y pulsa **Guardar**. Está disponible tanto para los atajos originales como para los atajos por modelo, con respuesta completa o recortada. El selector incluye Sonnet 5.5, Opus 5.5, Haiku 4.5 y Fable 5.1, usando los identificadores de la [documentación oficial](https://platform.claude.com/docs/en/models/overview). Las capturas se envían como PNG al endpoint Messages de Anthropic; solo se muestra el texto final, sin bloques de razonamiento. Las respuestas incompletas o rechazadas se indican como errores.
 
 En **Apariencia** tienes la vista previa primero, seguida de la esquina, el tamaño del texto y el selector de color integrado. Haz clic o arrastra sobre el espectro, ajusta el brillo o introduce componentes RGB entre 0 y 255; el resultado cambia al instante. Activa **Predeterminado** para restaurar el blanco. El interruptor de la barra lateral cambia el tema. Pulsa **Guardar** para conservar los ajustes.
 
@@ -99,8 +106,8 @@ El workflow **Release** utiliza la misma compilación y las mismas pruebas que *
 2. Crea y sube un tag con esa versión:
 
 ```powershell
-git tag v2.0.2
-git push origin v2.0.2
+git tag v2.2.0
+git push origin v2.2.0
 ```
 
 El tag debe coincidir con la versión del proyecto. GitHub Actions crea el Release y adjunta **Viso.exe** y **Viso.exe.sha256**, que permite comprobar su integridad. También puedes ejecutar **Release** manualmente desde **Actions**, indicando un tag existente.
@@ -109,7 +116,7 @@ Si repites la ejecución para el mismo tag, actualiza esos archivos en el Releas
 
 ## Claves y privacidad
 
-Obtén tu clave en [OpenAI](https://platform.openai.com/api-keys) o [Google AI Studio](https://aistudio.google.com/apikey). Necesitas conexión a Internet y acceso al modelo seleccionado. Los límites y el costo dependen de tu cuenta y del proveedor.
+Obtén tu clave en [OpenAI](https://platform.openai.com/api-keys), [Google AI Studio](https://aistudio.google.com/apikey) o [Claude Console](https://platform.claude.com/settings/keys). Necesitas conexión a Internet y acceso al modelo seleccionado. Los límites y el costo dependen de tu cuenta y del proveedor.
 
 | Dato | Cómo se utiliza |
 | --- | --- |
