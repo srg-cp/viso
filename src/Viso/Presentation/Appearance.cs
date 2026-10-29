@@ -23,6 +23,7 @@ internal static class Appearance
         ["PopupBrush"] = ("#FAFAFC", "#303032"),
         ["SecondaryButtonBrush"] = ("#ECECF1", "#444447"),
         ["AccentBrush"] = ("#007AFF", "#0A84FF"),
+        ["DestructiveBrush"] = ("#D92D20", "#FF6961"),
         ["LinkBrush"] = ("#0066CC", "#64A9FF"),
         ["SelectedBrush"] = ("#E7F0FF", "#263E60"),
         ["HoverBrush"] = ("#F0F3F9", "#3A3A3E"),

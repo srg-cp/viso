@@ -33,6 +33,7 @@ public partial class MainWindow : Window
     private bool busy;
     private bool hasResponse;
     private bool exiting;
+    private bool uninstalling;
     private IntPtr handle;
     private Forms.Screen? answerScreen;
     private CaptureHotkeys? hotkeys;
@@ -438,7 +439,7 @@ public partial class MainWindow : Window
     }
     private async void SelectAreaClick(object sender, RoutedEventArgs e)
     {
-        if (busy || exiting) return;
+        if (busy || exiting || uninstalling) return;
         bool showAnswer = answer.IsVisible;
         bool failed = false;
         CaptureArea? previousArea = settings.SavedArea;
@@ -523,7 +524,7 @@ public partial class MainWindow : Window
     }
     private async Task CaptureAsync(bool shortAnswer = false, ModelShortcut? modelShortcut = null)
     {
-        if (busy || exiting) return;
+        if (busy || exiting || uninstalling) return;
         try
         {
             // Never leave an old image ready to send after a failed recapture.
@@ -563,7 +564,7 @@ public partial class MainWindow : Window
     }
     private async Task SendAsync(bool shortAnswer, int maxCharacters, ModelShortcut target, string key)
     {
-        if (busy || capture == null || exiting) return;
+        if (busy || capture == null || exiting || uninstalling) return;
         if (string.IsNullOrWhiteSpace(key))
         {
             ReportError($"Añade tu API key de {target.Provider}.");
@@ -626,6 +627,7 @@ public partial class MainWindow : Window
     }
     private void SaveClick(object sender, RoutedEventArgs e)
     {
+        if (uninstalling) return;
         var previousModels = settings.ModelShortcuts;
         var previous = (settings.HotkeyModifiers, settings.HotkeyVirtualKey, settings.ShortHotkeyModifiers, settings.ShortHotkeyVirtualKey, settings.HideHotkeyModifiers, settings.HideHotkeyVirtualKey, settings.MaxResponseCharacters, settings.DismissMode, settings.DismissSeconds);
         bool changedHotkeys = false;
@@ -661,6 +663,30 @@ public partial class MainWindow : Window
             settings.DismissMode = previous.DismissMode; settings.DismissSeconds = previous.DismissSeconds;
             if (changedHotkeys && hotkeys != null && !hotkeys.TryReplace(previous.HotkeyModifiers, previous.HotkeyVirtualKey, previous.ShortHotkeyModifiers, previous.ShortHotkeyVirtualKey, previous.HideHotkeyModifiers, previous.HideHotkeyVirtualKey, previousModels, out _)) hotkeys.Dispose();
             UpdateHotkeyDisplay(); StatusText.Text = "No se pudo guardar: " + ex.Message;
+        }
+    }
+    private async void UninstallClick(object sender, RoutedEventArgs e)
+    {
+        if (!persistSettings || exiting || uninstalling) return;
+        var confirmation = AppleAlert.CreateUninstallConfirmation();
+        confirmation.Owner = this;
+        confirmation.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        if (confirmation.ShowDialog() != true) return;
+        uninstalling = true;
+        ShellContent.IsEnabled = false;
+        requestCancellation?.Cancel();
+        answer.Hide();
+        try
+        {
+            StatusText.Text = "Preparando la desinstalación…";
+            await Uninstaller.PrepareAsync();
+            Close();
+        }
+        catch (Exception ex)
+        {
+            uninstalling = false;
+            ShellContent.IsEnabled = true;
+            ReportError("No se pudo desinstalar Viso: " + ex.Message);
         }
     }
     private async void TrayClick(object sender, RoutedEventArgs e) => await HideWindowAnimatedAsync();
@@ -993,7 +1019,7 @@ public partial class MainWindow : Window
         DefaultTextColorCheck.IsChecked = false;
         RedBox.Text = "12"; GreenBox.Text = "130"; BlueBox.Text = "240";
         CornerBox.SelectedIndex = 1;
-        FontBox.SelectedIndex = 3;
+        FontBox.Text = "20";
         if (((System.Windows.Media.SolidColorBrush)ResponsePreviewText.Foreground).Color.ToString() != "#FF0C82F0" || ResponsePreviewText.FontSize != 20 || ResponsePreviewText.HorizontalAlignment != HorizontalAlignment.Left)
             throw new InvalidOperationException("La vista previa no refleja el color RGB, tamaño y esquina.");
         ReadSettings(false);
@@ -1014,7 +1040,13 @@ public partial class MainWindow : Window
         MaxCharactersBox.Text = "10";
         DefaultTextColorCheck.IsChecked = true;
         CornerBox.SelectedIndex = 0;
-        FontBox.SelectedIndex = 1;
+        FontBox.Text = "12";
+        ReadSettings(false);
+        answer.ApplySettings(settings, screen);
+        var restoredSettings = System.Text.Json.JsonSerializer.Deserialize<Settings>(System.Text.Json.JsonSerializer.Serialize(settings))!;
+        if (settings.FontSize != 12 || restoredSettings.FontSize != 12 || ResponsePreviewText.FontSize != 12 || answer.AnswerText.FontSize != 12)
+            throw new InvalidOperationException("El tamaño de 12 px no se conserva o no se aplica a la vista previa y la respuesta.");
+        FontBox.Text = "16";
         ReadSettings(false);
         answer.ApplySettings(settings, screen);
         if (settings.TextColor != null || ((System.Windows.Media.SolidColorBrush)answer.AnswerText.Foreground).Color != System.Windows.Media.Colors.White)
@@ -1098,6 +1130,7 @@ public partial class MainWindow : Window
         GeneralNav.IsChecked = true;
         await Task.Delay(250);
         UiSnapshot.Save(this, "smoke-light.png");
+        SmokeTestUninstallConfirmation();
         DarkModeSwitch.IsChecked = true;
         ReadSettings(false);
         await Task.Delay(100);
@@ -1108,6 +1141,7 @@ public partial class MainWindow : Window
         if (System.Text.Json.JsonSerializer.Deserialize<Settings>(System.Text.Json.JsonSerializer.Serialize(settings))!.Appearance != "dark")
             throw new InvalidOperationException("La apariencia no se conserva en la configuración.");
         UiSnapshot.Save(this, "smoke-dark.png");
+        SmokeTestUninstallConfirmation();
         ResponseNav.IsChecked = true;
         await Task.Delay(250);
         UiSnapshot.Save(this, "smoke-appearance-dark.png");
@@ -1192,5 +1226,31 @@ public partial class MainWindow : Window
         await Task.Delay(100);
         if (Appearance.IsDark || ((System.Windows.Media.SolidColorBrush)WindowSurface.Background).Color.ToString() != "#FFF7F7F9")
             throw new InvalidOperationException("No se pudo volver al modo claro.");
+    }
+
+    private void SmokeTestUninstallConfirmation()
+    {
+        if (!UninstallButton.IsVisible || UninstallButton.ActualWidth < 80)
+            throw new InvalidOperationException("No se muestra la opción de desinstalar en General.");
+        var alert = AppleAlert.CreateUninstallConfirmation();
+        alert.Owner = this;
+        alert.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        Exception? failure = null;
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            try
+            {
+                if (!alert.MatchesAppearance() || alert.AcceptButton.IsDefault || !alert.CancelButton.IsDefault || !alert.CancelButton.IsVisible || !alert.CancelButton.IsKeyboardFocused)
+                    throw new InvalidOperationException("La confirmación de desinstalación debe conservar el tema y enfocar Cancelar.");
+                UiSnapshot.Save(alert, Appearance.IsDark ? "smoke-uninstall-dark.png" : "smoke-uninstall-light.png");
+            }
+            catch (Exception ex) { failure = ex; }
+            finally { alert.CancelButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); }
+        };
+        timer.Start();
+        if (alert.ShowDialog() != false) throw new InvalidOperationException("Cancelar autorizó la desinstalación.");
+        if (failure != null) throw failure;
     }
 }

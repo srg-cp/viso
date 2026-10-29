@@ -13,11 +13,12 @@
     <Product>Viso</Product>
     <Description>Captura de ejercicios y respuestas con modelos de visión.</Description>
     <ApplicationIcon>../../assets/branding/viso.ico</ApplicationIcon>
-    <Version>2.2.0</Version>
+    <Version>2.3.0</Version>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Viso.Tests" />
     <Resource Include="../../assets/branding/viso.png" Link="Resources/Branding/viso.png" />
     <Resource Include="../../assets/branding/viso.ico" Link="Resources/Branding/viso.ico" />
+    <EmbeddedResource Include="Maintenance/Uninstall.ps1" />
   </ItemGroup>
 </Project>

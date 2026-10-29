@@ -62,6 +62,11 @@ public partial class App : Application
         var window = smokeTest ? new MainWindow(new OverlayFlowTestHandler(), false) : new MainWindow();
         MainWindow = window;
         window.Show();
+        if (Array.IndexOf(e.Args, "--uninstall-failed") >= 0)
+        {
+            window.ReportError("No se pudo completar la desinstalación. Cierra otras copias de Viso y comprueba los permisos de sus archivos antes de intentarlo de nuevo.");
+            AppleAlert.Present("No se pudo desinstalar Viso", "Algunos archivos no se pudieron eliminar. Puedes volver a intentarlo desde General. El detalle está en %TEMP%\\Viso-uninstall-error.txt.", window);
+        }
         if (Array.IndexOf(e.Args, "--smoke-test") >= 0)
         {
             try

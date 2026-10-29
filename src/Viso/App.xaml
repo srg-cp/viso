@@ -15,6 +15,7 @@
     <SolidColorBrush x:Key="PopupBrush" Color="#FAFAFC"/>
     <SolidColorBrush x:Key="SecondaryButtonBrush" Color="#ECECF1"/>
     <SolidColorBrush x:Key="AccentBrush" Color="#007AFF"/>
+    <SolidColorBrush x:Key="DestructiveBrush" Color="#D92D20"/>
     <SolidColorBrush x:Key="LinkBrush" Color="#0066CC"/>
     <SolidColorBrush x:Key="SelectedBrush" Color="#E7F0FF"/>
     <SolidColorBrush x:Key="HoverBrush" Color="#F0F3F9"/>

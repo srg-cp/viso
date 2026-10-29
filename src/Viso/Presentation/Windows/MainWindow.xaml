@@ -75,6 +75,12 @@
           </Border>
           <StackPanel x:Name="DismissTimePanel" Margin="0,14,0,0"><TextBlock Text="Segundos" Style="{StaticResource FieldLabel}"/><TextBox x:Name="DismissSecondsBox" MaxLength="4" Width="120" HorizontalAlignment="Left" ToolTip="Entre 1 y 3.600 segundos."/></StackPanel>
           <TextBlock x:Name="DismissHelp" Style="{StaticResource Caption}" Margin="0,10,0,18"/>
+          <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0" Padding="0,20,0,0" Margin="0,4,0,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel Margin="0,0,18,0"><TextBlock Text="Desinstalar Viso" Style="{StaticResource SectionTitle}"/>
+              <TextBlock Text="Elimina la aplicación, sus ajustes y claves guardadas." Style="{StaticResource Caption}" Margin="0,8,0,0"/>
+            </StackPanel>
+            <Button x:Name="UninstallButton" Grid.Column="1" Content="Desinstalar…" Foreground="{DynamicResource DestructiveBrush}" VerticalAlignment="Center" Click="UninstallClick" AutomationProperties.Name="Desinstalar Viso por completo"/>
+          </Grid></Border>
         </StackPanel></Border>
         <Border x:Name="CaptureOptionsPanel" Visibility="Collapsed" Style="{StaticResource SettingsCard}"><StackPanel>
           <TextBlock Text="Captura" Style="{StaticResource SectionTitle}"/>
@@ -137,7 +143,7 @@
           <TextBlock x:Name="ResponsePreviewSummary" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,18"/>
           <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="3*"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
             <StackPanel Margin="0,0,14,0"><TextBlock Text="Ubicación" Style="{StaticResource FieldLabel}"/><ComboBox x:Name="CornerBox" SelectedIndex="0"><ComboBoxItem Content="Inferior derecha"/><ComboBoxItem Content="Inferior izquierda"/></ComboBox></StackPanel>
-            <StackPanel Grid.Column="1"><TextBlock Text="Tamaño del texto" Style="{StaticResource FieldLabel}"/><ComboBox x:Name="FontBox" SelectedIndex="1"><ComboBoxItem Content="14"/><ComboBoxItem Content="16"/><ComboBoxItem Content="18"/><ComboBoxItem Content="20"/></ComboBox></StackPanel>
+            <StackPanel Grid.Column="1"><TextBlock Text="Tamaño del texto" Style="{StaticResource FieldLabel}"/><ComboBox x:Name="FontBox" SelectedIndex="2"><ComboBoxItem Content="12"/><ComboBoxItem Content="14"/><ComboBoxItem Content="16"/><ComboBoxItem Content="18"/><ComboBoxItem Content="20"/></ComboBox></StackPanel>
           </Grid>
 
           <Grid Margin="0,18,0,8"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>

@@ -11,7 +11,7 @@
   <a href="https://github.com/srg-cp/viso/releases/latest"><img src="https://img.shields.io/github/v/release/srg-cp/viso?label=release" alt="Último Release"></a>
   <img src="https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&amp;logoColor=white" alt="Windows 10 y 11">
   <img src="https://img.shields.io/badge/.NET-8-512BD4?logo=dotnet&amp;logoColor=white" alt=".NET 8">
-  <img src="https://img.shields.io/badge/version-2.2.0-333333" alt="Versión 2.2.0">
+  <img src="https://img.shields.io/badge/version-2.3.0-333333" alt="Versión 2.3.0">
   <img src="https://img.shields.io/badge/modelos-OpenAI%20%2B%20Gemini%20%2B%20Claude-4285F4" alt="OpenAI, Gemini y Claude">
 </p>
 
@@ -60,7 +60,7 @@ Por ejemplo, asigna **Alt + Mayús + 1** a GPT-5.4 Mini y **Alt + Mayús + 2** a
 
 Para **Claude**, selecciona ese proveedor en **Modelo de IA**, introduce tu API key de Anthropic y pulsa **Guardar**. Está disponible tanto para los atajos originales como para los atajos por modelo, con respuesta completa o recortada. El selector incluye Sonnet 5.5, Opus 5.5, Haiku 4.5 y Fable 5.1, usando los identificadores de la [documentación oficial](https://platform.claude.com/docs/en/models/overview). Las capturas se envían como PNG al endpoint Messages de Anthropic; solo se muestra el texto final, sin bloques de razonamiento. Las respuestas incompletas o rechazadas se indican como errores.
 
-En **Apariencia** tienes la vista previa primero, seguida de la esquina, el tamaño del texto y el selector de color integrado. Haz clic o arrastra sobre el espectro, ajusta el brillo o introduce componentes RGB entre 0 y 255; el resultado cambia al instante. Activa **Predeterminado** para restaurar el blanco. El interruptor de la barra lateral cambia el tema. Pulsa **Guardar** para conservar los ajustes.
+En **Apariencia** tienes la vista previa primero, seguida de la esquina, el tamaño del texto (12, 14, 16, 18 o 20 px) y el selector de color integrado. Haz clic o arrastra sobre el espectro, ajusta el brillo o introduce componentes RGB entre 0 y 255; el resultado cambia al instante. Activa **Predeterminado** para restaurar el blanco. El interruptor de la barra lateral cambia el tema. Pulsa **Guardar** para conservar los ajustes.
 
 En **General** elige cómo ocultar la respuesta:
 
@@ -75,6 +75,8 @@ El **atajo para ocultar** funciona en los tres modos y se configura junto a los 
 ![Configuración del ocultamiento de respuestas](docs/images/viso-response-settings.png)
 
 El menú del icono junto al reloj permite abrir la configuración, capturar, copiar u ocultar la respuesta y salir. El botón rojo cierra Viso.
+
+Para eliminar la aplicación, abre **General → Desinstalar…** y confirma **Desinstalar**. Viso se cierra y elimina el ejecutable que estás usando, sus archivos de soporte, los ajustes y claves de `%LOCALAPPDATA%\Viso`, los datos anteriores de `%LOCALAPPDATA%\CapturaTutor` y su caché de extracción de .NET. También elimina los accesos directos de tu escritorio, menú Inicio y carpeta de elementos anclados que apuntan a ese ejecutable. Conserva otros archivos de la carpeta donde descargaste Viso y otras copias del ejecutable. **Cancelar** conserva la aplicación y todos sus datos. Si algún archivo no se puede eliminar, Viso vuelve a abrirse con un aviso para intentarlo de nuevo; el detalle queda en `%TEMP%\Viso-uninstall-error.txt`.
 
 Los errores y las consultas canceladas se indican únicamente como texto en la parte inferior de la configuración. Cuando Viso está oculto, permanecen allí hasta que abras la ventana: no aparecen sobre la pantalla, no abren la aplicación y no generan alertas. Se conserva el aviso al intentar abrir una segunda instancia.
 
@@ -106,8 +108,8 @@ El workflow **Release** utiliza la misma compilación y las mismas pruebas que *
 2. Crea y sube un tag con esa versión:
 
 ```powershell
-git tag v2.2.0
-git push origin v2.2.0
+git tag v2.3.0
+git push origin v2.3.0
 ```
 
 El tag debe coincidir con la versión del proyecto. GitHub Actions crea el Release y adjunta **Viso.exe** y **Viso.exe.sha256**, que permite comprobar su integridad. También puedes ejecutar **Release** manualmente desde **Actions**, indicando un tag existente.

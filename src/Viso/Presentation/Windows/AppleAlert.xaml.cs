@@ -28,7 +28,19 @@ public partial class AppleAlert : Window
         if (owner?.IsVisible == true) { alert.Owner = owner; alert.WindowStartupLocation = WindowStartupLocation.CenterOwner; }
         alert.ShowDialog();
     }
+    internal static AppleAlert CreateUninstallConfirmation()
+    {
+        var alert = new AppleAlert("¿Desinstalar Viso?", "Viso se cerrará y eliminará este ejecutable, los ajustes, las claves guardadas, los datos de la versión anterior y sus accesos directos. Esta acción no se puede deshacer.");
+        alert.AcceptButton.Content = "Desinstalar";
+        alert.AcceptButton.Background = (Brush)Application.Current.FindResource("DestructiveBrush");
+        alert.AcceptButton.IsDefault = false;
+        alert.CancelButton.Visibility = Visibility.Visible;
+        alert.CancelButton.IsDefault = true;
+        alert.Loaded += (_, _) => alert.CancelButton.Focus();
+        return alert;
+    }
     private void AcceptClick(object sender, RoutedEventArgs e) => DialogResult = true;
+    private void CancelClick(object sender, RoutedEventArgs e) => DialogResult = false;
     internal void AcceptForSmokeTest() => AcceptButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
     internal bool MatchesAppearance() => ((SolidColorBrush)AlertSurface.Background).Color == (Color)ColorConverter.ConvertFromString(Appearance.IsDark ? "#303032" : "#FAFAFC");
     private void AlertKeyDown(object sender, KeyEventArgs e) { if (e.Key == Key.Escape) { e.Handled = true; DialogResult = false; } }
