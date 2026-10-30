@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.Windows.Documents;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -37,6 +39,25 @@ public partial class AppleAlert : Window
         alert.CancelButton.Visibility = Visibility.Visible;
         alert.CancelButton.IsDefault = true;
         alert.Loaded += (_, _) => alert.CancelButton.Focus();
+        return alert;
+    }
+    internal static AppleAlert CreateRepositoryInfo()
+    {
+        var alert = new AppleAlert("Información", "");
+        var link = new Hyperlink(new Run("github.com/srg-cp/viso"))
+        {
+            NavigateUri = new Uri("https://github.com/srg-cp/viso")
+        };
+        link.RequestNavigate += (_, e) =>
+        {
+            e.Handled = true;
+            try { Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true }); }
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+            { alert.AlertTitle.Text = "No se pudo abrir el navegador"; }
+        };
+        alert.AlertMessage.Inlines.Add(link);
+        alert.AcceptButton.Content = "Cerrar";
+        alert.Loaded += (_, _) => link.Focus();
         return alert;
     }
     private void AcceptClick(object sender, RoutedEventArgs e) => DialogResult = true;

@@ -1130,6 +1130,7 @@ public partial class MainWindow : Window
         GeneralNav.IsChecked = true;
         await Task.Delay(250);
         UiSnapshot.Save(this, "smoke-light.png");
+        SmokeTestRepositoryInfo();
         SmokeTestUninstallConfirmation();
         DarkModeSwitch.IsChecked = true;
         ReadSettings(false);
@@ -1141,6 +1142,7 @@ public partial class MainWindow : Window
         if (System.Text.Json.JsonSerializer.Deserialize<Settings>(System.Text.Json.JsonSerializer.Serialize(settings))!.Appearance != "dark")
             throw new InvalidOperationException("La apariencia no se conserva en la configuración.");
         UiSnapshot.Save(this, "smoke-dark.png");
+        SmokeTestRepositoryInfo();
         SmokeTestUninstallConfirmation();
         ResponseNav.IsChecked = true;
         await Task.Delay(250);
@@ -1226,6 +1228,41 @@ public partial class MainWindow : Window
         await Task.Delay(100);
         if (Appearance.IsDark || ((System.Windows.Media.SolidColorBrush)WindowSurface.Background).Color.ToString() != "#FFF7F7F9")
             throw new InvalidOperationException("No se pudo volver al modo claro.");
+    }
+
+    private void InfoClick(object sender, RoutedEventArgs e)
+    {
+        var alert = AppleAlert.CreateRepositoryInfo();
+        alert.Owner = this;
+        alert.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        alert.ShowDialog();
+        InfoButton.Focus();
+    }
+
+    private void SmokeTestRepositoryInfo()
+    {
+        Exception? failure = null;
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            var alert = Application.Current.Windows.OfType<AppleAlert>().SingleOrDefault();
+            try
+            {
+                var link = alert?.AlertMessage.Inlines.OfType<System.Windows.Documents.Hyperlink>().SingleOrDefault();
+                if (alert == null || !alert.IsVisible || alert.Owner != this || !alert.MatchesAppearance()
+                    || link?.NavigateUri.AbsoluteUri != "https://github.com/srg-cp/viso" || !link.IsKeyboardFocused)
+                    throw new InvalidOperationException("El icono de información debe abrir el enlace del repositorio con el tema actual y foco de teclado.");
+                UiSnapshot.Save(alert, Appearance.IsDark ? "smoke-info-dark.png" : "smoke-info-light.png");
+            }
+            catch (Exception ex) { failure = ex; }
+            finally { alert?.AcceptForSmokeTest(); }
+        };
+        timer.Start();
+        InfoButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        timer.Stop();
+        if (failure != null) throw failure;
+        if (!InfoButton.IsKeyboardFocused) throw new InvalidOperationException("Cerrar la información debe devolver el foco al icono.");
     }
 
     private void SmokeTestUninstallConfirmation()
