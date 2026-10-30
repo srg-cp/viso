@@ -12,5 +12,10 @@
     <PackageReference Include="xunit.v3" Version="3.2.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" PrivateAssets="all" />
     <ProjectReference Include="../../src/Viso/Viso.csproj" />
+    <ProjectReference Include="../Viso.UpdateProbe/Viso.UpdateProbe.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
+  <Target Name="CopyUpdateProbe" AfterTargets="Build">
+    <ItemGroup><ProbeFiles Include="../Viso.UpdateProbe/bin/$(Configuration)/net8.0/*" /></ItemGroup>
+    <Copy SourceFiles="@(ProbeFiles)" DestinationFolder="$(OutDir)UpdateProbe" />
+  </Target>
 </Project>

@@ -80,6 +80,13 @@
           </Border>
           <StackPanel x:Name="DismissTimePanel" Margin="0,14,0,0"><TextBlock Text="Segundos" Style="{StaticResource FieldLabel}"/><TextBox x:Name="DismissSecondsBox" MaxLength="4" Width="120" HorizontalAlignment="Left" ToolTip="Entre 1 y 3.600 segundos."/></StackPanel>
           <TextBlock x:Name="DismissHelp" Style="{StaticResource Caption}" Margin="0,10,0,18"/>
+          <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0" Padding="0,20,0,20" Margin="0,4,0,0"><StackPanel>
+            <TextBlock Text="Actualizaciones" Style="{StaticResource SectionTitle}"/>
+            <TextBlock x:Name="UpdateVersionText" Style="{StaticResource Caption}" Margin="0,8,0,0"/>
+            <TextBlock x:Name="UpdateStatusText" Text="Las nuevas versiones se descargan automáticamente. Tú decides cuándo reiniciar." Style="{StaticResource Caption}" Margin="0,6,0,0" AutomationProperties.LiveSetting="Polite"/>
+            <ProgressBar x:Name="UpdateProgress" Visibility="Collapsed" Height="4" Minimum="0" Maximum="100" Margin="0,12,0,0" Foreground="{DynamicResource AccentBrush}" AutomationProperties.Name="Descarga de actualización"/>
+            <Button x:Name="CheckUpdateButton" Content="Buscar actualizaciones" Click="CheckUpdateClick" HorizontalAlignment="Left" Margin="0,14,0,0"/>
+          </StackPanel></Border>
           <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0" Padding="0,20,0,0" Margin="0,4,0,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <StackPanel Margin="0,0,18,0"><TextBlock Text="Desinstalar Viso" Style="{StaticResource SectionTitle}"/>
               <TextBlock Text="Elimina la aplicación, sus ajustes y claves guardadas." Style="{StaticResource Caption}" Margin="0,8,0,0"/>
@@ -175,6 +182,7 @@
           </StackPanel>
         </ScrollViewer>
         <Border Grid.Row="2" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0" Background="{DynamicResource WindowBrush}" Padding="24,14,24,18"><StackPanel>
+          <Button x:Name="RestartUpdateButton" Content="Actualización lista · Reiniciar…" Visibility="Collapsed" Click="RestartUpdateClick" HorizontalAlignment="Left" Margin="0,0,0,12" Foreground="{DynamicResource LinkBrush}" AutomationProperties.Name="Reiniciar para actualizar Viso"/>
           <TextBlock x:Name="StatusText" Text="Añade tu API key." Style="{StaticResource Caption}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="80" Margin="0,0,0,12"/>
           <WrapPanel HorizontalAlignment="Right"><Button x:Name="CancelButton" Content="Cancelar consulta" Click="CancelClick" Visibility="Collapsed" Margin="0,0,8,0"/><Button Content="Ocultar" ToolTip="Seguir usando los atajos con la ventana oculta" Click="TrayClick" Margin="0,0,8,0"/><Button x:Name="SaveButton" Content="Guardar" Click="SaveClick" Background="{DynamicResource AccentBrush}" Foreground="White"/></WrapPanel>
         </StackPanel></Border>

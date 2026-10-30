@@ -60,6 +60,15 @@ public partial class AppleAlert : Window
         alert.Loaded += (_, _) => link.Focus();
         return alert;
     }
+    internal static AppleAlert CreateUpdateConfirmation(string version)
+    {
+        var alert = new AppleAlert("Viso " + version + " está listo", "Viso se cerrará y volverá a abrirse actualizado. Tus claves y ajustes guardados se conservarán. Guarda los cambios pendientes antes de continuar.");
+        alert.AcceptButton.Content = "Reiniciar y actualizar";
+        alert.CancelButton.Content = "Más tarde";
+        alert.CancelButton.Visibility = Visibility.Visible;
+        alert.Loaded += (_, _) => alert.AcceptButton.Focus();
+        return alert;
+    }
     private void AcceptClick(object sender, RoutedEventArgs e) => DialogResult = true;
     private void CancelClick(object sender, RoutedEventArgs e) => DialogResult = false;
     internal void AcceptForSmokeTest() => AcceptButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));

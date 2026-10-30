@@ -62,6 +62,17 @@ public partial class App : Application
         var window = smokeTest ? new MainWindow(new OverlayFlowTestHandler(), false) : new MainWindow();
         MainWindow = window;
         window.Show();
+        int updatedIndex = Array.IndexOf(e.Args, "--updated");
+        if (updatedIndex >= 0 && updatedIndex + 1 < e.Args.Length)
+        {
+            // MainWindow construction and Show have completed, including hotkey/tray setup.
+            try { Updater.Acknowledge(e.Args[updatedIndex + 1]); }
+            catch (Exception ex) { window.ReportError("No se pudo confirmar la actualización: " + ex.Message); }
+        }
+        bool updateFailed = Array.IndexOf(e.Args, "--update-failed") >= 0;
+        window.StartUpdates(!updateFailed);
+        if (updateFailed)
+            AppleAlert.Present("No se pudo completar la actualización", "Se intentó recuperar la versión anterior. Puedes volver a buscar actualizaciones desde General. El detalle está en %TEMP%\\Viso-update-error.txt.", window);
         if (Array.IndexOf(e.Args, "--uninstall-failed") >= 0)
         {
             window.ReportError("No se pudo completar la desinstalación. Cierra otras copias de Viso y comprueba los permisos de sus archivos antes de intentarlo de nuevo.");

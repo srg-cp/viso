@@ -11,7 +11,7 @@
   <a href="https://github.com/srg-cp/viso/releases/latest"><img src="https://img.shields.io/github/v/release/srg-cp/viso?label=release" alt="Último Release"></a>
   <img src="https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&amp;logoColor=white" alt="Windows 10 y 11">
   <img src="https://img.shields.io/badge/.NET-8-512BD4?logo=dotnet&amp;logoColor=white" alt=".NET 8">
-  <img src="https://img.shields.io/badge/version-2.3.0-333333" alt="Versión 2.3.0">
+  <img src="https://img.shields.io/badge/version-2.4.0-333333" alt="Versión 2.4.0">
   <img src="https://img.shields.io/badge/modelos-OpenAI%20%2B%20Gemini%20%2B%20Claude-4285F4" alt="OpenAI, Gemini y Claude">
 </p>
 
@@ -33,6 +33,7 @@ Viso es una aplicación de escritorio para Windows. Con un atajo captura la pant
 - Vista previa en vivo de la respuesta completa o recortada y color de texto personalizado por RGB o selector de color.
 - Ocultamiento por tiempo, clic o scroll, con un atajo independiente para ocultar la respuesta.
 - Interfaz con modo claro y oscuro, animaciones y acceso desde la bandeja.
+- Actualizaciones integradas desde GitHub: descarga verificada y reinicio cuando tú decidas.
 - OpenAI, Gemini y Claude (Anthropic), con una clave independiente para cada proveedor.
 - Ejecutable portable para Windows de 64 bits, con .NET incluido.
 
@@ -108,8 +109,8 @@ El workflow **Release** utiliza la misma compilación y las mismas pruebas que *
 2. Crea y sube un tag con esa versión:
 
 ```powershell
-git tag v2.3.0
-git push origin v2.3.0
+git tag v2.4.0
+git push origin v2.4.0
 ```
 
 El tag debe coincidir con la versión del proyecto. GitHub Actions crea el Release y adjunta **Viso.exe** y **Viso.exe.sha256**, que permite comprobar su integridad. También puedes ejecutar **Release** manualmente desde **Actions**, indicando un tag existente.
@@ -154,6 +155,16 @@ build.ps1                   Generación del ejecutable portable
 
 Los ejecutables, la configuración local y los informes de prueba están excluidos de Git. El PNG y el SVG del logo están en `assets/branding`; el archivo `.ico` incluye varios tamaños para Windows.
 
+## Actualizaciones de la aplicación
+
+Desde Viso 2.4.0, la aplicación busca versiones estables al abrirse y cada seis horas mientras sigue abierta, incluso en la bandeja. Descarga la nueva versión en segundo plano desde `srg-cp/viso`, verifica su tamaño y SHA-256 y muestra **Actualización lista · Reiniciar…**. También puedes abrir **General → Actualizaciones** o **Actualizaciones…** desde la bandeja para buscar manualmente. No necesita tokens de GitHub ni utiliza las claves de los modelos.
+
+Al pulsar **Reiniciar y actualizar**, Viso reemplaza su ejecutable portable y vuelve a abrirse. Conserva los ajustes y las claves guardadas; guarda cualquier cambio pendiente antes de reiniciar. Si hay una consulta en curso, debes esperar a que termine o cancelarla. El ejecutable debe estar en una carpeta con permisos de escritura. Las compilaciones de desarrollo no se reemplazan.
+
+El actualizador mantiene una copia de respaldo hasta que la nueva versión confirma su inicio. Si falla el reemplazo o el arranque, intenta recuperar la versión anterior. El detalle de un fallo queda en `%TEMP%\Viso-update-error.txt`. Si Windows impide restaurar el archivo, conserva la copia `.backup` junto al ejecutable para recuperarla manualmente. Sin conexión o si GitHub limita las solicitudes, Viso sigue funcionando y permite reintentar.
+
+Para distribuir una actualización, incrementa la versión del proyecto y publica el tag correspondiente, por ejemplo `v2.4.0`, usando el proceso de Release existente. El actualizador exige el archivo `Viso.exe` y su digest SHA-256 en los metadatos de GitHub. Las versiones anteriores a 2.4.0 necesitan una última descarga manual para incorporar esta función.
+
 ## Pruebas
 
 Para ejecutar las pruebas unitarias en Windows:
@@ -163,6 +174,8 @@ dotnet test tests/Viso.Tests/Viso.Tests.csproj -c Release
 ```
 
 Cubren el recorte de caracteres Unicode, las áreas en varios monitores, las respuestas incompletas o bloqueadas, el ocultamiento de claves en errores y la exclusión del razonamiento interno de la respuesta visible. Usan datos locales, sin llamadas a modelos.
+
+Las pruebas del actualizador simulan las respuestas de GitHub y verifican versiones, enlaces, tamaños, SHA-256 y cancelación de descargas. Un ejecutable de prueba desechable comprueba el reemplazo real, la cancelación y la recuperación tras un fallo de inicio, conservando un archivo de ajustes de prueba. No descargan releases ni reemplazan tu copia de Viso.
 
 **Build** las ejecuta en cada push a `main` y en cada pull request. **Release** las ejecuta antes de publicar. Los resultados `.trx` y el informe de comprobaciones del ejecutable quedan en el artefacto `Viso-test-results`, incluso si las pruebas fallan.
 

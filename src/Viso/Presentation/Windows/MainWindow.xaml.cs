@@ -136,6 +136,7 @@ public partial class MainWindow : Window
             item.Click += (_, _) => { trayMenu.IsOpen = false; action(); }; trayMenu.Items.Add(item);
         }
         AddMenuItem("Abrir Viso", ShowMain);
+        AddMenuItem("Actualizaciones…", () => { ShowMain(); GeneralNav.IsChecked = true; CheckUpdateButton.BringIntoView(); });
         trayMenu.Items.Add(new Separator());
         AddMenuItem("Capturar · completa", () => _ = CaptureAsync());
         AddMenuItem("Capturar · recortada", () => _ = CaptureAsync(true));
@@ -179,6 +180,8 @@ public partial class MainWindow : Window
         Closing += (_, _) =>
         {
             exiting = true;
+            if (!installingUpdate && updateJob != null && !checkingUpdate)
+                try { Updater.DeleteJob(updateJob); } catch (IOException) { } catch (UnauthorizedAccessException) { }
             requestCancellation?.Cancel();
             hotkeys?.Dispose();
             answer.Dismissal.Dispose();
@@ -439,7 +442,7 @@ public partial class MainWindow : Window
     }
     private async void SelectAreaClick(object sender, RoutedEventArgs e)
     {
-        if (busy || exiting || uninstalling) return;
+        if (busy || exiting || uninstalling || installingUpdate) return;
         bool showAnswer = answer.IsVisible;
         bool failed = false;
         CaptureArea? previousArea = settings.SavedArea;
@@ -524,7 +527,7 @@ public partial class MainWindow : Window
     }
     private async Task CaptureAsync(bool shortAnswer = false, ModelShortcut? modelShortcut = null)
     {
-        if (busy || exiting || uninstalling) return;
+        if (busy || exiting || uninstalling || installingUpdate) return;
         try
         {
             // Never leave an old image ready to send after a failed recapture.
@@ -564,7 +567,7 @@ public partial class MainWindow : Window
     }
     private async Task SendAsync(bool shortAnswer, int maxCharacters, ModelShortcut target, string key)
     {
-        if (busy || capture == null || exiting || uninstalling) return;
+        if (busy || capture == null || exiting || uninstalling || installingUpdate) return;
         if (string.IsNullOrWhiteSpace(key))
         {
             ReportError($"Añade tu API key de {target.Provider}.");
@@ -667,7 +670,7 @@ public partial class MainWindow : Window
     }
     private async void UninstallClick(object sender, RoutedEventArgs e)
     {
-        if (!persistSettings || exiting || uninstalling) return;
+        if (!persistSettings || exiting || uninstalling || installingUpdate) return;
         var confirmation = AppleAlert.CreateUninstallConfirmation();
         confirmation.Owner = this;
         confirmation.WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -1131,6 +1134,7 @@ public partial class MainWindow : Window
         await Task.Delay(250);
         UiSnapshot.Save(this, "smoke-light.png");
         SmokeTestRepositoryInfo();
+        SmokeTestUpdateConfirmation();
         SmokeTestUninstallConfirmation();
         DarkModeSwitch.IsChecked = true;
         ReadSettings(false);
@@ -1143,6 +1147,7 @@ public partial class MainWindow : Window
             throw new InvalidOperationException("La apariencia no se conserva en la configuración.");
         UiSnapshot.Save(this, "smoke-dark.png");
         SmokeTestRepositoryInfo();
+        SmokeTestUpdateConfirmation();
         SmokeTestUninstallConfirmation();
         ResponseNav.IsChecked = true;
         await Task.Delay(250);
@@ -1263,6 +1268,30 @@ public partial class MainWindow : Window
         timer.Stop();
         if (failure != null) throw failure;
         if (!InfoButton.IsKeyboardFocused) throw new InvalidOperationException("Cerrar la información debe devolver el foco al icono.");
+    }
+
+    private void SmokeTestUpdateConfirmation()
+    {
+        var alert = AppleAlert.CreateUpdateConfirmation("2.5.0");
+        alert.Owner = this;
+        alert.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        Exception? failure = null;
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            try
+            {
+                if (!alert.MatchesAppearance() || !alert.CancelButton.IsVisible || !alert.AcceptButton.IsKeyboardFocused)
+                    throw new InvalidOperationException("El diálogo de actualización debe conservar el tema y permitir posponer.");
+                UiSnapshot.Save(alert, Appearance.IsDark ? "smoke-update-dark.png" : "smoke-update-light.png");
+            }
+            catch (Exception ex) { failure = ex; }
+            finally { alert.CancelButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); }
+        };
+        timer.Start();
+        if (alert.ShowDialog() != false) throw new InvalidOperationException("Posponer autorizó la actualización.");
+        if (failure != null) throw failure;
     }
 
     private void SmokeTestUninstallConfirmation()
