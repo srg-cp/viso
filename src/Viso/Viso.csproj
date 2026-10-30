@@ -13,7 +13,7 @@
     <Product>Viso</Product>
     <Description>Captura de ejercicios y respuestas con modelos de visión.</Description>
     <ApplicationIcon>../../assets/branding/viso.ico</ApplicationIcon>
-    <Version>2.4.0</Version>
+    <Version>2.4.1</Version>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Viso.Tests" />

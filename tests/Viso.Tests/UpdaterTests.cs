@@ -78,7 +78,14 @@ public sealed class UpdaterTests
             if (!helper.HasExited) { helper.Kill(); await helper.WaitForExitAsync(TestContext.Current.CancellationToken); }
             Updater.DeleteJob(job);
             UninstallPlan.ValidatePath(root);
-            Directory.Delete(root, true);
+            // Windows/Defender can retain the image mapping briefly after WaitForExit.
+            // Retry only this test's disposable directory, after validating its path.
+            for (int attempt = 0; ; attempt++)
+            {
+                try { Directory.Delete(root, true); break; }
+                catch (Exception ex) when (attempt < 20 && ex is IOException or UnauthorizedAccessException)
+                { await Task.Delay(250, TestContext.Current.CancellationToken); }
+            }
         }
     }
 }

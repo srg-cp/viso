@@ -11,7 +11,7 @@
   <a href="https://github.com/srg-cp/viso/releases/latest"><img src="https://img.shields.io/github/v/release/srg-cp/viso?label=release" alt="Último Release"></a>
   <img src="https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&amp;logoColor=white" alt="Windows 10 y 11">
   <img src="https://img.shields.io/badge/.NET-8-512BD4?logo=dotnet&amp;logoColor=white" alt=".NET 8">
-  <img src="https://img.shields.io/badge/version-2.4.0-333333" alt="Versión 2.4.0">
+  <img src="https://img.shields.io/badge/version-2.4.1-333333" alt="Versión 2.4.1">
   <img src="https://img.shields.io/badge/modelos-OpenAI%20%2B%20Gemini%20%2B%20Claude-4285F4" alt="OpenAI, Gemini y Claude">
 </p>
 
@@ -109,8 +109,8 @@ El workflow **Release** utiliza la misma compilación y las mismas pruebas que *
 2. Crea y sube un tag con esa versión:
 
 ```powershell
-git tag v2.4.0
-git push origin v2.4.0
+git tag v2.4.1
+git push origin v2.4.1
 ```
 
 El tag debe coincidir con la versión del proyecto. GitHub Actions crea el Release y adjunta **Viso.exe** y **Viso.exe.sha256**, que permite comprobar su integridad. También puedes ejecutar **Release** manualmente desde **Actions**, indicando un tag existente.
